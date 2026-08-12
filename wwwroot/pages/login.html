@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In — InventoryZero</title>
+    <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+    <div class="auth-wrapper">
+        <nav class="auth-nav">
+            <span class="logo">Inventory<span>Zero</span></span>
+        </nav>
+        <div class="auth-card">
+            <h1>Welcome back</h1>
+            <p>Sign in to your account to continue</p>
+            <div class="err-msg" id="err-msg"></div>
+            <div class="field">
+                <label>Email address</label>
+                <input type="email" id="email" placeholder="you@example.com" />
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="••••••••" />
+            </div>
+            <button class="btn-primary" id="login-btn">Sign in</button>
+            <p class="switch">Don't have an account? <a href="/pages/register.html">Create one</a></p>
+        </div>
+    </div>
+    <script src="/js/auth.js"></script>
+</body>
+</html>

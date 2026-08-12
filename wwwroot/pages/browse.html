@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Browse Deals — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/browse.css" />
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt" aria-hidden="true"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/index.html">Home</a>
+            <a href="/pages/browse.html">Browse deals</a>
+            <a href="/pages/register.html?role=Seller">Sell stock</a>
+        </div>
+        <div class="nav-right" id="nav-right">
+            <button class="btn-ghost" onclick="window.location.href='/pages/login.html'">Sign in</button>
+            <button class="btn-solid" onclick="window.location.href='/pages/register.html'">Get started</button>
+        </div>
+    </nav>
+
+    <div class="browse-hero">
+        <div class="bh-grid"></div>
+        <div class="bh-glow"></div>
+        <div class="bh-inner">
+            <div class="bh-top">
+                <div class="bh-title">Browse <span>deals</span></div>
+                <div class="bh-count" id="result-count">Loading...</div>
+            </div>
+            <div class="search-bar">
+                <div class="search-wrap">
+                    <i class="ti ti-search" aria-hidden="true"></i>
+                    <input class="search-input" type="text" id="search-input"
+                           placeholder="Search deals — jackets, phones, sofas..."
+                           onkeydown="if(event.key==='Enter')applyFilters()" />
+                </div>
+                <button class="btn-search" onclick="applyFilters()">Search</button>
+                <div class="sort-wrap">
+                    <span class="sort-label">Sort</span>
+                    <select class="sort-select" id="sort-select" onchange="applyFilters()">
+                        <option value="newest">Newest</option>
+                        <option value="ending-soon">Ending soon</option>
+                        <option value="price-asc">Price: low</option>
+                        <option value="price-desc">Price: high</option>
+                        <option value="discount">Most discount</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="browse-body">
+        <aside class="filters">
+            <div class="filter-hdr">
+                <h3>Filters</h3>
+                <button onclick="clearFilters()">Clear all</button>
+            </div>
+            <div class="filter-section">
+                <h4>Category</h4>
+                <div class="filter-cats" id="filter-cats">
+                    <div class="filter-cat active" data-slug="" onclick="selectCat(this)">
+                        <div class="filter-cat-dot" style="background:#6b7280"></div>
+                        <span>All categories</span>
+                    </div>
+                </div>
+            </div>
+            <div class="filter-section">
+                <h4>Price range</h4>
+                <div class="price-inputs">
+                    <input class="price-input" type="number" placeholder="Min R" id="min-price" />
+                    <input class="price-input" type="number" placeholder="Max R" id="max-price" />
+                </div>
+            </div>
+            <div class="filter-section">
+                <h4>Condition</h4>
+                <div class="condition-btns">
+                    <button class="cond-btn active" onclick="selectCond(this,'')" data-val="">Any condition</button>
+                    <button class="cond-btn" onclick="selectCond(this,'New')" data-val="New">New</button>
+                    <button class="cond-btn" onclick="selectCond(this,'Open Box')" data-val="Open Box">Open box</button>
+                    <button class="cond-btn" onclick="selectCond(this,'Refurbished')" data-val="Refurbished">Refurbished</button>
+                    <button class="cond-btn" onclick="selectCond(this,'Slight Defect')" data-val="Slight Defect">Slight defect</button>
+                </div>
+            </div>
+            <div class="filter-section">
+                <h4>Urgency</h4>
+                <div class="urgent-toggle">
+                    <span>
+                        <i class="ti ti-flame" style="color:#E24B4A;font-size:14px" aria-hidden="true"></i>
+                        Urgent deals only
+                    </span>
+                    <button class="toggle" id="urgent-toggle"
+                            onclick="this.classList.toggle('on');applyFilters()"></button>
+                </div>
+            </div>
+            <button class="apply-btn" onclick="applyFilters()">Apply filters</button>
+        </aside>
+
+        <div class="results">
+            <div class="results-meta">
+                <p>Showing <span id="showing-count">—</span> deals</p>
+            </div>
+            <div class="active-filters" id="active-filters"></div>
+            <div class="deals-grid" id="deals-grid">
+                <div class="deal-skeleton"></div>
+                <div class="deal-skeleton"></div>
+                <div class="deal-skeleton"></div>
+                <div class="deal-skeleton"></div>
+                <div class="deal-skeleton"></div>
+                <div class="deal-skeleton"></div>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal" onclick="if(event.target.id==='modal')closeModal()">
+        <div class="modal">
+            <div class="modal-hero" id="m-img" style="background:#f5f5f3">
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+                📦
+            </div>
+            <div class="modal-body">
+                <div class="modal-top">
+                    <div>
+                        <div class="modal-cat" id="m-cat"></div>
+                        <div class="modal-title" id="m-title"></div>
+                    </div>
+                    <div class="modal-pricing">
+                        <div class="modal-price" id="m-price"></div>
+                        <div class="modal-orig" id="m-orig"></div>
+                        <div class="modal-disc" id="m-disc"></div>
+                    </div>
+                </div>
+                <div class="modal-grid">
+                    <div class="mg-item"><div class="mg-label">Condition</div><div class="mg-val" id="m-cond"></div></div>
+                    <div class="mg-item"><div class="mg-label">Stock left</div><div class="mg-val" id="m-stock"></div></div>
+                    <div class="mg-item"><div class="mg-label">Location</div><div class="mg-val" id="m-city"></div></div>
+                    <div class="mg-item"><div class="mg-label">Ends in</div><div class="mg-val" id="m-ends"></div></div>
+                </div>
+                <div class="modal-shop-row" id="m-shop-row">
+                    <div class="ms-avatar"><i class="ti ti-building-store" aria-hidden="true"></i></div>
+                    <div>
+                        <div class="ms-name" id="m-shop"></div>
+                        <div class="ms-loc" id="m-shoploc"></div>
+                    </div>
+                    <div class="ms-verified" id="m-verified"></div>
+                </div>
+                <p class="modal-desc" id="m-desc"></p>
+                <div class="modal-actions">
+                    <button class="btn-buy" id="m-buy">Buy now</button>
+                    <button class="btn-save-p" id="m-save">
+                        <i class="ti ti-heart" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/browse.js"></script>
+</body>
+</html>

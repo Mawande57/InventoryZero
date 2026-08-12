@@ -1,0 +1,210 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Confirmed — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <style>
+        body {
+            background: #f8f8f6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .nav {
+            background: rgba(10,10,10,0.96);
+            height: 58px;
+            display: flex;
+            align-items: center;
+            padding: 0 2rem;
+            border-bottom: 0.5px solid rgba(255,255,255,0.08);
+        }
+
+        .nav-logo {
+            font-size: 17px;
+            font-weight: 600;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+            .nav-logo i {
+                color: #1D9E75;
+            }
+
+            .nav-logo span {
+                color: #1D9E75;
+            }
+
+        .center {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .card {
+            background: #fff;
+            border: 0.5px solid #e8e8e8;
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            text-align: center;
+            max-width: 440px;
+            width: 100%;
+        }
+
+        .icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: #E1F5EE;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #1D9E75;
+            margin: 0 auto 1.25rem;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0a0a0a;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .order-num {
+            background: #f8f8f6;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 14px;
+            color: #6b7280;
+            font-family: monospace;
+            margin-bottom: 1.5rem;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .step-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .step-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #E1F5EE;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #1D9E75;
+            flex-shrink: 0;
+        }
+
+        .btn-dash {
+            width: 100%;
+            padding: 13px;
+            background: #1D9E75;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            margin-bottom: 10px;
+        }
+
+            .btn-dash:hover {
+                background: #0F6E56;
+            }
+
+        .btn-browse {
+            width: 100%;
+            padding: 13px;
+            background: transparent;
+            color: #0a0a0a;
+            border: 0.5px solid #e8e8e8;
+            border-radius: 12px;
+            font-size: 15px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+            .btn-browse:hover {
+                border-color: #1D9E75;
+                color: #1D9E75;
+            }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-logo">
+            <i class="ti ti-bolt" aria-hidden="true"></i>Inventory<span>Zero</span>
+        </div>
+    </nav>
+    <div class="center">
+        <div class="card">
+            <div class="icon"><i class="ti ti-check" aria-hidden="true"></i></div>
+            <h1>Payment confirmed!</h1>
+            <p>Your order has been paid and the seller has been notified. Get ready for your deal.</p>
+            <div class="order-num" id="order-num">Loading...</div>
+            <div class="steps">
+                <div class="step-row">
+                    <div class="step-dot"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i></div>
+                    Order placed and payment confirmed
+                </div>
+                <div class="step-row">
+                    <div class="step-dot">2</div>
+                    Seller prepares your item
+                </div>
+                <div class="step-row">
+                    <div class="step-dot">3</div>
+                    Item shipped or ready for collection
+                </div>
+                <div class="step-row">
+                    <div class="step-dot">4</div>
+                    You confirm delivery — seller gets paid
+                </div>
+            </div>
+            <button class="btn-dash"
+                    onclick="window.location.href='/pages/buyer-dashboard.html'">
+                View my orders
+            </button>
+            <button class="btn-browse"
+                    onclick="window.location.href='/pages/browse.html'">
+                Keep browsing deals
+            </button>
+        </div>
+    </div>
+    <script>
+    const params = new URLSearchParams(window.location.search);
+    const orderNum = params.get('order');
+    document.getElementById('order-num').textContent = orderNum || 'Order confirmed';
+    </script>
+</body>
+</html>

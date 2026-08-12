@@ -1,0 +1,45 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register — InventoryZero</title>
+    <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+    <div class="auth-wrapper">
+        <nav class="auth-nav">
+            <span class="logo">Inventory<span>Zero</span></span>
+        </nav>
+        <div class="auth-card">
+            <h1>Create account</h1>
+            <p>Join thousands getting insane deals</p>
+            <div class="role-toggle">
+                <button class="role-btn active" data-role="Buyer">🛒 Buyer</button>
+                <button class="role-btn" data-role="Seller">🏪 Seller</button>
+            </div>
+            <input type="hidden" id="role" value="Buyer" />
+            <div class="err-msg" id="err-msg"></div>
+            <div class="field">
+                <label>Full name</label>
+                <input type="text" id="fullName" placeholder="John Dlamini" />
+            </div>
+            <div class="field">
+                <label>Email address</label>
+                <input type="email" id="email" placeholder="you@example.com" />
+            </div>
+            <div class="field">
+                <label>Phone (optional)</label>
+                <input type="tel" id="phone" placeholder="+27 81 234 5678" />
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Min 8 characters" />
+            </div>
+            <button class="btn-primary" id="register-btn">Create account</button>
+            <p class="switch">Already have an account? <a href="/pages/login.html">Sign in</a></p>
+        </div>
+    </div>
+    <script src="/js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Dashboard — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/buyer-dashboard.css" />
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt" aria-hidden="true"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/index.html">Home</a>
+            <a href="/pages/browse.html">Browse deals</a>
+        </div>
+        <div class="nav-right">
+            <span class="nav-user" id="nav-user"></span>
+            <button class="btn-logout" onclick="logout()">
+                <i class="ti ti-logout" aria-hidden="true"></i> Sign out
+            </button>
+            <button class="btn-browse" onclick="window.location.href='/pages/browse.html'">
+                Browse deals
+            </button>
+        </div>
+    </nav>
+
+    <div class="dash-hero">
+        <div class="dh-grid"></div>
+        <div class="dh-glow"></div>
+        <div class="dh-inner">
+            <div class="dh-left">
+                <h1 id="welcome-msg">My Dashboard</h1>
+                <p>Welcome back — here's what's happening with your account</p>
+            </div>
+            <div class="dh-stats">
+                <div class="dh-stat"><div class="n" id="stat-orders">—</div><div class="l">Orders</div></div>
+                <div class="dh-stat"><div class="n" id="stat-saved">—</div><div class="l">Saved</div></div>
+                <div class="dh-stat"><div class="n" id="stat-spent">—</div><div class="l">Total spent</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-body">
+        <div class="main-col">
+
+            <!-- Orders -->
+            <div class="dash-section">
+                <div class="ds-header">
+                    <h2>My orders</h2>
+                    <a href="#" id="view-all-orders">
+                        View all <i class="ti ti-arrow-right" aria-hidden="true"></i>
+                    </a>
+                </div>
+                <div id="orders-list">
+                    <div class="order-skeleton"></div>
+                    <div class="order-skeleton"></div>
+                </div>
+            </div>
+
+            <!-- Saved -->
+            <div class="dash-section">
+                <div class="ds-header">
+                    <h2>Saved deals</h2>
+                    <span id="saved-count" style="font-size:13px;color:#6b7280"></span>
+                </div>
+                <div class="saved-grid" id="saved-grid">
+                    <div class="saved-skeleton"></div>
+                    <div class="saved-skeleton"></div>
+                    <div class="saved-skeleton"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="side-col">
+
+            <!-- Profile -->
+            <div class="profile-card">
+                <div class="profile-top">
+                    <div class="profile-glow"></div>
+                    <div class="profile-avatar" id="profile-initial">?</div>
+                    <div class="profile-name" id="profile-name">Loading...</div>
+                    <div class="profile-email" id="profile-email"></div>
+                </div>
+                <div class="profile-body">
+                    <div class="profile-row">
+                        <span><i class="ti ti-phone" aria-hidden="true"></i>Phone</span>
+                        <strong id="profile-phone">—</strong>
+                    </div>
+                    <div class="profile-row">
+                        <span><i class="ti ti-user-check" aria-hidden="true"></i>Role</span>
+                        <strong id="profile-role">—</strong>
+                    </div>
+                    <div class="profile-row">
+                        <span><i class="ti ti-calendar" aria-hidden="true"></i>Joined</span>
+                        <strong id="profile-joined">—</strong>
+                    </div>
+                    <div class="profile-row">
+                        <span><i class="ti ti-shield" aria-hidden="true"></i>Email</span>
+                        <strong id="profile-verified">—</strong>
+                    </div>
+                    <button class="btn-edit-profile" onclick="showEditModal()">
+                        <i class="ti ti-edit" aria-hidden="true"></i> Edit profile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Addresses -->
+            <div class="addr-card">
+                <div class="ds-header">
+                    <h2>My addresses</h2>
+                </div>
+                <div class="addr-list" id="addr-list">
+                    <div class="addr-skeleton"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal-overlay" id="edit-modal" onclick="if(event.target.id==='edit-modal')closeEditModal()">
+        <div class="modal">
+            <div class="modal-hdr">
+                <h3>Edit profile</h3>
+                <button class="modal-x" onclick="closeEditModal()">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="field">
+                    <label>Full name</label>
+                    <input type="text" id="edit-name" placeholder="Your full name" />
+                </div>
+                <div class="field">
+                    <label>Phone number</label>
+                    <input type="tel" id="edit-phone" placeholder="+27 81 234 5678" />
+                </div>
+                <div class="err-msg" id="edit-err"></div>
+                <button class="btn-save" id="edit-save-btn" onclick="saveProfile()">Save changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Address Modal -->
+    <div class="modal-overlay" id="addr-modal" onclick="if(event.target.id==='addr-modal')closeAddrModal()">
+        <div class="modal">
+            <div class="modal-hdr">
+                <h3>Add new address</h3>
+                <button class="modal-x" onclick="closeAddrModal()">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="field">
+                    <label>Recipient name</label>
+                    <input type="text" id="addr-name" placeholder="Full name of recipient" />
+                </div>
+                <div class="field">
+                    <label>Address line 1</label>
+                    <input type="text" id="addr-line1" placeholder="Street address" />
+                </div>
+                <div class="field">
+                    <label>Address line 2 (optional)</label>
+                    <input type="text" id="addr-line2" placeholder="Apartment, suite, etc." />
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>City</label>
+                        <input type="text" id="addr-city" placeholder="City" />
+                    </div>
+                    <div class="field">
+                        <label>Province</label>
+                        <select id="addr-province">
+                            <option value="">Select province</option>
+                            <option>Gauteng</option>
+                            <option>Western Cape</option>
+                            <option>KwaZulu-Natal</option>
+                            <option>Eastern Cape</option>
+                            <option>Limpopo</option>
+                            <option>Mpumalanga</option>
+                            <option>North West</option>
+                            <option>Free State</option>
+                            <option>Northern Cape</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Postal code</label>
+                        <input type="text" id="addr-postal" placeholder="0001" />
+                    </div>
+                    <div class="field">
+                        <label>Phone</label>
+                        <input type="tel" id="addr-phone" placeholder="081 234 5678" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Address type</label>
+                    <select id="addr-type">
+                        <option value="Home">Home</option>
+                        <option value="Work">Work</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="field-check">
+                    <input type="checkbox" id="addr-default" />
+                    <label for="addr-default">Set as default address</label>
+                </div>
+                <div class="err-msg" id="addr-err"></div>
+                <button class="btn-save" id="addr-save-btn" onclick="saveAddress()">Add address</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/buyer-dashboard.js"></script>
+</body>
+</html>

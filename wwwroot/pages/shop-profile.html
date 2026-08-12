@@ -1,0 +1,157 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shop Profile — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/shop-profile.css" />
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt" aria-hidden="true"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/index.html">Home</a>
+            <a href="/pages/browse.html">Browse deals</a>
+            <a href="/pages/register.html?role=Seller">Sell stock</a>
+        </div>
+        <div class="nav-right" id="nav-right">
+            <button class="btn-ghost" onclick="window.location.href='/pages/login.html'">Sign in</button>
+            <button class="btn-solid" onclick="window.location.href='/pages/register.html'">Get started</button>
+        </div>
+    </nav>
+
+    <div class="shop-hero">
+        <div class="sh-grid"></div>
+        <div class="sh-cover">
+            <div class="sh-cover-glow"></div>
+        </div>
+        <div class="sh-inner">
+            <div class="sh-profile">
+                <div class="sh-avatar" id="sh-avatar">🏪</div>
+                <div class="sh-info">
+                    <div class="sh-name-row">
+                        <div class="sh-name" id="sh-name">Loading...</div>
+                        <div class="sh-verified" id="sh-verified" style="display:none">
+                            <i class="ti ti-shield-check" aria-hidden="true"></i> Verified
+                        </div>
+                    </div>
+                    <div class="sh-meta">
+                        <span id="sh-location" style="display:none">
+                            <i class="ti ti-map-pin" aria-hidden="true"></i>
+                            <span id="sh-city"></span>
+                        </span>
+                        <span id="sh-joined">
+                            <i class="ti ti-calendar" aria-hidden="true"></i>
+                            <span id="sh-join-date"></span>
+                        </span>
+                        <span>
+                            <i class="ti ti-star-filled" style="color:#F59E0B" aria-hidden="true"></i>
+                            <span id="sh-rating">—</span> rating
+                        </span>
+                    </div>
+                </div>
+                <div class="sh-actions">
+                    <button class="btn-contact" id="btn-contact" onclick="handleContact()">
+                        <i class="ti ti-message" aria-hidden="true"></i> Contact seller
+                    </button>
+                </div>
+            </div>
+            <div class="sh-stats">
+                <div class="sh-stat"><div class="n" id="sh-listings">—</div><div class="l">Active listings</div></div>
+                <div class="sh-stat"><div class="n" id="sh-sales">—</div><div class="l">Total sales</div></div>
+                <div class="sh-stat"><div class="n" id="sh-revenue">—</div><div class="l">Revenue</div></div>
+                <div class="sh-stat"><div class="n" id="sh-reviews">—</div><div class="l">Reviews</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="shop-body">
+
+        <div class="shop-desc" id="shop-desc" style="display:none">
+            <p id="sh-description"></p>
+            <div class="shop-tags" id="sh-tags"></div>
+        </div>
+
+        <div class="shdr">
+            <div class="shdr-left">
+                <h2>Active listings</h2>
+                <p id="sh-listing-count">Loading deals...</p>
+            </div>
+            <a href="/pages/browse.html" id="sh-browse-link">
+                Browse all deals <i class="ti ti-arrow-right" aria-hidden="true"></i>
+            </a>
+        </div>
+
+        <div class="deals-grid" id="deals-grid">
+            <div class="deal-skeleton"></div>
+            <div class="deal-skeleton"></div>
+            <div class="deal-skeleton"></div>
+            <div class="deal-skeleton"></div>
+        </div>
+
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal" onclick="if(event.target.id==='modal')closeModal()">
+        <div class="modal">
+            <div class="modal-hero" id="m-img" style="background:#f5f5f3">
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+                📦
+            </div>
+            <div class="modal-body">
+                <div class="modal-top">
+                    <div>
+                        <div class="modal-cat" id="m-cat"></div>
+                        <div class="modal-title" id="m-title"></div>
+                    </div>
+                    <div class="modal-pricing">
+                        <div class="modal-price" id="m-price"></div>
+                        <div class="modal-orig" id="m-orig"></div>
+                        <div class="modal-disc" id="m-disc"></div>
+                    </div>
+                </div>
+                <div class="modal-grid">
+                    <div class="mg-item"><div class="mg-label">Condition</div><div class="mg-val" id="m-cond"></div></div>
+                    <div class="mg-item"><div class="mg-label">Stock left</div><div class="mg-val" id="m-stock"></div></div>
+                    <div class="mg-item"><div class="mg-label">Location</div><div class="mg-val" id="m-city"></div></div>
+                    <div class="mg-item"><div class="mg-label">Ends in</div><div class="mg-val" id="m-ends"></div></div>
+                </div>
+                <div class="modal-shop-row">
+                    <div class="ms-avatar"><i class="ti ti-building-store" aria-hidden="true"></i></div>
+                    <div>
+                        <div class="ms-name" id="m-shop"></div>
+                        <div class="ms-loc" id="m-shoploc"></div>
+                    </div>
+                    <div class="ms-verified" id="m-verified"></div>
+                </div>
+                <p class="modal-desc" id="m-desc"></p>
+                <div class="modal-actions">
+                    <button class="btn-buy" id="m-buy">Buy now</button>
+                    <button class="btn-save-p" id="m-save">
+                        <i class="ti ti-heart" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="iz-footer">
+        <p>© 2025 InventoryZero. Built for South Africa.</p>
+        <div class="footer-links">
+            <a href="#">About</a>
+            <a href="#">Terms</a>
+            <a href="#">Privacy</a>
+            <a href="#">Contact</a>
+        </div>
+    </footer>
+
+    <script src="/js/shop-profile.js"></script>
+</body>
+</html>

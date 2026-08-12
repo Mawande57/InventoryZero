@@ -1,0 +1,207 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InventoryZero — Insane deals from local shops</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/home.css" />
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt" aria-hidden="true"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/browse.html">Browse deals</a>
+            <a href="/pages/register.html?role=Seller">Sell stock</a>
+            <a href="#how">How it works</a>
+        </div>
+        <div class="nav-right" id="nav-right">
+            <button class="btn-ghost" onclick="window.location.href='/pages/login.html'">Sign in</button>
+            <button class="btn-solid" onclick="window.location.href='/pages/register.html'">Get started</button>
+        </div>
+    </nav>
+
+    <!-- replace old hero section -->
+    <section class="iz-hero">
+        <div class="hero-grid"></div>
+        <div class="hero-glow"></div>
+        <div class="hero-inner">
+            <div class="hero-pill">
+                <span class="pulse-dot"></span>
+                2,400+ live deals ending soon
+            </div>
+            <h1>Shops clear stock.<span class="accent">You win big.</span></h1>
+            <p class="hero-sub">
+                Local SA shops sell unsold inventory at <strong>70–90% off.</strong>
+                Real deals from real verified shops — before stock disappears forever.
+            </p>
+            <div class="hero-btns">
+                <button class="btn-hero-p" onclick="window.location.href='/pages/browse.html'">
+                    Browse deals <i class="ti ti-arrow-right" aria-hidden="true"></i>
+                </button>
+                <button class="btn-hero-s" onclick="window.location.href='/pages/register.html?role=Seller'">
+                    List your stock
+                </button>
+            </div>
+        </div>
+        <div class="iz-stats">
+            <div class="iz-stat"><div class="n" id="s-deals">—</div><div class="l">Active deals</div></div>
+            <div class="iz-stat"><div class="n">R12M+</div><div class="l">Saved by buyers</div></div>
+            <div class="iz-stat"><div class="n">840</div><div class="l">Verified shops</div></div>
+            <div class="iz-stat"><div class="n">24h</div><div class="l">Seller payout</div></div>
+        </div>
+    </section>
+
+  
+    <main class="iz-body">
+
+        <div class="section-hdr">
+            <div class="section-hdr-left">
+                <h2>Browse by category</h2>
+                <p>Find deals in your favourite section</p>
+            </div>
+            <a href="/pages/browse.html">All categories <i class="ti ti-arrow-right" aria-hidden="true"></i></a>
+        </div>
+        <div class="cats" id="cats-grid">
+            <div class="cat-skeleton"></div>
+            <div class="cat-skeleton"></div>
+            <div class="cat-skeleton"></div>
+            <div class="cat-skeleton"></div>
+            <div class="cat-skeleton"></div>
+            <div class="cat-skeleton"></div>
+        </div>
+
+        <div class="section-hdr">
+            <div class="section-hdr-left">
+                <h2><i class="ti ti-flame" style="color:#E24B4A;font-size:20px;vertical-align:-3px" aria-hidden="true"></i> Deals ending soon</h2>
+                <p>Grab these before they're gone</p>
+            </div>
+            <a href="/pages/browse.html?sort=ending-soon">View all <i class="ti ti-arrow-right" aria-hidden="true"></i></a>
+        </div>
+        <div class="deals" id="deals-grid">
+            <div class="deal-skeleton"></div>
+            <div class="deal-skeleton"></div>
+            <div class="deal-skeleton"></div>
+            <div class="deal-skeleton"></div>
+        </div>
+        <div class="featured-banner">
+            <div class="fb-glow"></div>
+            <div class="fb-left">
+                <h2>Got unsold stock?<br>Turn it into cash — fast.</h2>
+                <p>List your items in minutes. Reach thousands of SA buyers. Get paid within 24 hours. No monthly fees — just 15% on what you sell.</p>
+            </div>
+            <div class="fb-right">
+                <button class="btn-fb-w" onclick="window.location.href='/pages/register.html?role=Seller'">Start selling</button>
+                <button class="btn-fb-o" onclick="window.location.href='#how'">Learn more</button>
+            </div>
+        </div>
+        <section class="iz-how" id="how">
+            <div class="section-hdr" style="margin-bottom:0">
+                <h2>How it works</h2>
+            </div>
+            <div class="how-tabs">
+                <button class="how-tab active" onclick="switchTab('buyer',this)">For buyers</button>
+                <button class="how-tab" onclick="switchTab('seller',this)">For sellers</button>
+            </div>
+            <div class="how-steps" id="how-steps"></div>
+        </section>
+
+        <div class="trust">
+            <div class="trust-card">
+                <div class="trust-icon"><i class="ti ti-shield-check" aria-hidden="true"></i></div>
+                <h3>Verified shops only</h3>
+                <p>Every seller is reviewed and approved by our admin team before listing anything.</p>
+            </div>
+            <div class="trust-card">
+                <div class="trust-icon"><i class="ti ti-lock" aria-hidden="true"></i></div>
+                <h3>Secure payments</h3>
+                <p>Stripe handles all transactions. Your card details never touch our servers.</p>
+            </div>
+            <div class="trust-card">
+                <div class="trust-icon"><i class="ti ti-clock-24" aria-hidden="true"></i></div>
+                <h3>Paid in 24 hours</h3>
+                <p>Sellers receive 85% of the sale within 24 hours of a confirmed purchase.</p>
+            </div>
+            <div class="trust-card">
+                <div class="trust-icon"><i class="ti ti-receipt-refund" aria-hidden="true"></i></div>
+                <h3>Dispute protection</h3>
+                <p>Item not as described? Open a dispute. Resolved within 48 hours.</p>
+            </div>
+        </div>
+
+        <div class="iz-cta">
+            <div class="cta-g cta-g1"></div>
+            <div class="cta-g cta-g2"></div>
+            <h2>Ready to score a deal?</h2>
+            <p>Join thousands of SA buyers getting 70–90% off every day.</p>
+            <div class="cta-btns">
+                <button class="btn-cta-w" onclick="window.location.href='/pages/browse.html'">Browse deals now</button>
+                <button class="btn-cta-o" onclick="window.location.href='/pages/register.html?role=Seller'">List your stock</button>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="iz-footer">
+        <p>© 2025 InventoryZero. Built for South Africa.</p>
+        <div class="footer-links">
+            <a href="#">About</a>
+            <a href="#">Terms</a>
+            <a href="#">Privacy</a>
+            <a href="#">Contact</a>
+        </div>
+    </footer>
+
+    <!-- Product Detail Modal -->
+    <div class="modal-overlay" id="modal" onclick="if(event.target.id==='modal')closeModal(event)">
+        <div class="modal">
+            <div class="modal-hero" id="m-img" style="background:#f5f5f3">
+                <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+                📦
+            </div>
+            <div class="modal-body">
+                <div class="modal-top">
+                    <div>
+                        <div class="modal-cat" id="m-cat"></div>
+                        <div class="modal-title" id="m-title"></div>
+                    </div>
+                    <div class="modal-pricing">
+                        <div class="modal-price" id="m-price"></div>
+                        <div class="modal-orig" id="m-orig"></div>
+                        <div class="modal-disc" id="m-disc"></div>
+                    </div>
+                </div>
+                <div class="modal-grid">
+                    <div class="mg-item"><div class="mg-label">Condition</div><div class="mg-val" id="m-cond"></div></div>
+                    <div class="mg-item"><div class="mg-label">Stock left</div><div class="mg-val" id="m-stock"></div></div>
+                    <div class="mg-item"><div class="mg-label">Location</div><div class="mg-val" id="m-city"></div></div>
+                    <div class="mg-item"><div class="mg-label">Ends in</div><div class="mg-val" id="m-ends"></div></div>
+                </div>
+                <div class="modal-shop-row" id="m-shop-row">
+                    <div class="ms-avatar"><i class="ti ti-building-store" aria-hidden="true"></i></div>
+                    <div>
+                        <div class="ms-name" id="m-shop"></div>
+                        <div class="ms-loc" id="m-shoploc"></div>
+                    </div>
+                    <div class="ms-verified" id="m-verified"></div>
+                </div>
+                <p class="modal-desc" id="m-desc"></p>
+                <div class="modal-actions">
+                    <button class="btn-buy" id="m-buy">Buy now</button>
+                    <button class="btn-save-p" id="m-save">
+                        <i class="ti ti-heart" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/home.js"></script>
+</body>
+</html>

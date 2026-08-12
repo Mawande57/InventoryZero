@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Checkout — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/checkout.css" />
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt" aria-hidden="true"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-back" onclick="history.back()">
+            <i class="ti ti-arrow-left" aria-hidden="true"></i> Back to deals
+        </div>
+    </nav>
+
+    <div class="checkout-hero">
+        <div class="ch-grid"></div>
+        <div class="ch-glow"></div>
+        <div class="ch-inner">
+            <div class="ch-steps">
+                <div class="step done">
+                    <div class="step-num"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i></div>
+                    <span>Cart</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step active">
+                    <div class="step-num">2</div><span>Checkout</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step inactive">
+                    <div class="step-num">3</div><span>Payment</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step inactive">
+                    <div class="step-num">4</div><span>Confirmed</span>
+                </div>
+            </div>
+            <div class="ch-title">Complete your order</div>
+        </div>
+    </div>
+
+    <div class="checkout-body">
+        <div class="left-col">
+
+            <!-- Product preview -->
+            <div class="co-section">
+                <div class="co-hdr">
+                    <h3><i class="ti ti-package" aria-hidden="true"></i>Your item</h3>
+                </div>
+                <div class="co-body">
+                    <div class="product-preview" id="product-preview">
+                        <div class="pp-skeleton"></div>
+                    </div>
+                    <div class="qty-row" id="qty-row" style="display:none">
+                        <div>
+                            <span class="qty-label">Quantity</span>
+                            <span class="qty-stock" id="qty-stock"></span>
+                        </div>
+                        <div class="qty-ctrl">
+                            <button class="qty-btn" onclick="changeQty(-1)">−</button>
+                            <span class="qty-val" id="qty-val">1</span>
+                            <button class="qty-btn" onclick="changeQty(1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Address -->
+            <div class="co-section">
+                <div class="co-hdr">
+                    <h3><i class="ti ti-map-pin" aria-hidden="true"></i>Delivery address</h3>
+                </div>
+                <div class="co-body">
+                    <div class="addr-options" id="addr-options">
+                        <div class="addr-skeleton"></div>
+                    </div>
+
+                    <!-- New address form — hidden by default -->
+                    <div id="new-addr-form" style="display:none;margin-top:1rem">
+                        <div class="field-row">
+                            <div class="field">
+                                <label>Address line 1</label>
+                                <input type="text" id="new-line1" placeholder="Street address" />
+                            </div>
+                            <div class="field">
+                                <label>City</label>
+                                <input type="text" id="new-city" placeholder="City" />
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label>Province</label>
+                                <select id="new-province">
+                                    <option value="">Select</option>
+                                    <option>Gauteng</option>
+                                    <option>Western Cape</option>
+                                    <option>KwaZulu-Natal</option>
+                                    <option>Eastern Cape</option>
+                                    <option>Limpopo</option>
+                                    <option>Mpumalanga</option>
+                                    <option>North West</option>
+                                    <option>Free State</option>
+                                    <option>Northern Cape</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Postal code</label>
+                                <input type="text" id="new-postal" placeholder="0001" />
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Phone number</label>
+                            <input type="tel" id="new-phone" placeholder="081 234 5678" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="co-section">
+                <div class="co-hdr">
+                    <h3>
+                        <i class="ti ti-message" aria-hidden="true"></i>
+                        Notes for seller
+                        <span style="font-size:12px;color:#6b7280;font-weight:400">(optional)</span>
+                    </h3>
+                </div>
+                <div class="co-body">
+                    <textarea class="notes-input" id="buyer-notes"
+                              placeholder="Any special instructions for the seller..."></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Order Summary -->
+        <div class="order-summary">
+            <div class="os-hdr"><h3>Order summary</h3></div>
+            <div class="os-body">
+                <div class="os-row"><span>Item price</span><strong id="os-price">—</strong></div>
+                <div class="os-row"><span>Quantity</span><strong id="os-qty">× 1</strong></div>
+                <div class="os-row"><span>Subtotal</span><strong id="os-subtotal">—</strong></div>
+                <div class="os-row"><span>Shipping</span><strong style="color:#1D9E75">Free</strong></div>
+                <div class="os-row"><span>Tax</span><strong>R0</strong></div>
+                <div class="os-divider"></div>
+                <div class="os-total">
+                    <span>Total</span>
+                    <strong id="os-total">—</strong>
+                </div>
+                <div class="err-msg" id="checkout-err"></div>
+                <button class="btn-place" id="place-btn" onclick="placeOrder()">
+                    <i class="ti ti-lock" aria-hidden="true"></i>
+                    Place order securely
+                </button>
+                <div class="os-trust">
+                    <div class="trust-row">
+                        <i class="ti ti-shield-check" aria-hidden="true"></i>
+                        Your payment is protected by Stripe
+                    </div>
+                    <div class="trust-row">
+                        <i class="ti ti-receipt-refund" aria-hidden="true"></i>
+                        Dispute protection on every order
+                    </div>
+                    <div class="trust-row">
+                        <i class="ti ti-clock-24" aria-hidden="true"></i>
+                        Seller paid only after you confirm delivery
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/checkout.js"></script>
+</body>
+</html>
