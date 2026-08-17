@@ -1,4 +1,4 @@
-﻿const API = 'https://localhost:7237/api';
+﻿const API = 'https://upturned-schnapps-ipad.ngrok-free.dev/api';
 
 const EMOJIS = {
     'Clothing': '🧥', 'Electronics': '📱',
@@ -264,24 +264,36 @@ async function showSuccess(order) {
         });
 
         const payfast = await res.json();
-        console.log('PayFast response:', res.status, payfast);
+        console.log('PayFast response:', payfast);
 
-        // Build and auto-submit PayFast form
+        // Build the form
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = payfast.paymentUrl;
+        form.acceptCharset = 'UTF-8';
 
-        Object.entries(payfast.formData).forEach(([key, value]) => {
+        // 🔑 CRITICAL: Add fields in alphabetical order
+        // Get the keys and sort them alphabetically
+        const sortedKeys = Object.keys(payfast.formData).sort();
+
+        sortedKeys.forEach(key => {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = key;
-            input.value = value;
+            input.value = payfast.formData[key];
             form.appendChild(input);
         });
 
         document.body.appendChild(form);
 
-        // Show brief message before redirect
+        // Log the form data
+        console.log('=== FORM DATA BEING SUBMITTED ===');
+        sortedKeys.forEach(key => {
+            console.log(`${key}: ${payfast.formData[key]}`);
+        });
+        console.log('===================================');
+
+        // Show message before redirect
         const overlay = document.createElement('div');
         overlay.className = 'success-overlay open';
         overlay.innerHTML = `
@@ -296,26 +308,29 @@ async function showSuccess(order) {
             </div>`;
         document.body.appendChild(overlay);
 
-        // Submit form after 2 seconds
-        setTimeout(() => form.submit(), 2000);
+        // Submit after 2 seconds
+        setTimeout(() => {
+            console.log('Submitting form to PayFast...');
+            form.submit();
+        }, 2000);
 
     } catch (e) {
         console.error('Payment initiation failed:', e);
         const overlay = document.createElement('div');
         overlay.className = 'success-overlay open';
         overlay.innerHTML = `
-            <div class="success-card">
-                <div class="success-icon">
-                    <i class="ti ti-check" aria-hidden="true"></i>
-                </div>
-                <h2>Order placed!</h2>
-                <p>Your order has been placed. Complete payment from your dashboard.</p>
-                <div class="success-order">${order.orderNumber}</div>
-                <button class="btn-go-dash"
-                    onclick="window.location.href='/pages/buyer-dashboard.html'">
-                    View my orders
-                </button>
-            </div>`;
+     <div class="success-card">
+         <div class="success-icon">
+             <i class="ti ti-check" aria-hidden="true"></i>
+         </div>
+         <h2>Order placed!</h2>
+         <p>Your order has been placed. Complete payment from your dashboard.</p>
+         <div class="success-order">${order.orderNumber}</div>
+         <button class="btn-go-dash"
+             onclick="window.location.href='/pages/buyer-dashboard.html'">
+             View my orders
+         </button>
+     </div>`;
         document.body.appendChild(overlay);
     }
 }

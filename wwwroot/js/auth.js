@@ -1,4 +1,4 @@
-﻿const API = 'https://localhost:7237/api'; // change port to yours
+﻿const API = 'https://localhost:7237/api';
 
 // ── SHARED HELPERS ──────────────────────────────────────
 function showError(msg) {
