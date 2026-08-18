@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seller Dashboard — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="/css/buyer-dashboard.css"/>
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/index.html">Home</a>
+            <a href="/pages/browse.html">Browse deals</a>
+        </div>
+        <div class="nav-right">
+            <span class="nav-user" id="nav-user"></span>
+            <div id="dashboard-switcher" style="display:inline-flex;gap:8px"></div>
+            <button class="btn-logout" onclick="logout()">
+                <i class="ti ti-logout"></i> Sign out
+            </button>
+        </div>
+    </nav>
+
+    <div class="dash-hero">
+        <div class="dh-grid"></div>
+        <div class="dh-glow"></div>
+        <div class="dh-inner">
+            <div class="dh-left">
+                <h1 id="welcome-msg">Seller Dashboard</h1>
+                <p>Manage your shops, products, and orders</p>
+            </div>
+            <div class="dh-stats">
+                <div class="dh-stat"><div class="n" id="stat-shops">—</div><div class="l">Shops</div></div>
+                <div class="dh-stat"><div class="n" id="stat-products">—</div><div class="l">Products</div></div>
+                <div class="dh-stat"><div class="n" id="stat-orders">—</div><div class="l">Orders</div></div>
+                <div class="dh-stat"><div class="n" id="stat-revenue">—</div><div class="l">Revenue</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-body">
+        <!-- Tabs -->
+        <div class="dash-tabs">
+            <button class="tab-btn active" data-tab="orders" onclick="switchTab('orders')">
+                <i class="ti ti-package"></i> Orders
+            </button>
+            <button class="tab-btn" data-tab="products" onclick="switchTab('products')">
+                <i class="ti ti-box"></i> Products
+            </button>
+            <button class="tab-btn" data-tab="shops" onclick="switchTab('shops')">
+                <i class="ti ti-building-store"></i> Shops
+            </button>
+            <button class="tab-btn" data-tab="payouts" onclick="switchTab('payouts')">
+                <i class="ti ti-coin"></i> Payouts
+            </button>
+        </div>
+
+        <!-- Tab: Orders -->
+        <div class="tab-content active" id="tab-orders">
+            <div class="tab-header">
+                <h2>Manage Orders</h2>
+                <div class="order-filters">
+                    <select id="order-status-filter" onchange="loadSellerOrders()">
+                        <option value="">All statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Processing">Processing</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+            </div>
+            <div id="orders-list">
+                <div class="order-skeleton"></div>
+                <div class="order-skeleton"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Products -->
+        <div class="tab-content" id="tab-products">
+            <div class="tab-header">
+                <h2>My Products</h2>
+                <button class="btn-primary" onclick="showAddProductModal()">
+                    <i class="ti ti-plus"></i> Add Product
+                </button>
+            </div>
+            <div id="products-grid">
+                <div class="product-skeleton"></div>
+                <div class="product-skeleton"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Shops -->
+        <div class="tab-content" id="tab-shops">
+            <div class="tab-header">
+                <h2>My Shops</h2>
+                <button class="btn-primary" onclick="showAddShopModal()">
+                    <i class="ti ti-plus"></i> New Shop
+                </button>
+            </div>
+            <div id="shops-list">
+                <div class="shop-skeleton"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Payouts -->
+        <div class="tab-content" id="tab-payouts">
+            <div class="tab-header">
+                <h2>Payout History</h2>
+                <span id="total-payouts" style="font-size:14px;color:#6b7280"></span>
+            </div>
+            <div id="payouts-list">
+                <div class="payout-skeleton"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Product Modal -->
+    <div class="modal-overlay" id="add-product-modal" onclick="if(event.target.id==='add-product-modal')closeModal('add-product-modal')">
+        <div class="modal" style="max-width:600px">
+            <div class="modal-hdr">
+                <h3>Add New Product</h3>
+                <button class="modal-x" onclick="closeModal('add-product-modal')">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="field">
+                    <label>Title *</label>
+                    <input type="text" id="prod-title" placeholder="Product title" />
+                </div>
+                <div class="field">
+                    <label>Description</label>
+                    <textarea id="prod-desc" rows="3" placeholder="Product description"></textarea>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Original Price *</label>
+                        <input type="number" id="prod-original" placeholder="100.00" />
+                    </div>
+                    <div class="field">
+                        <label>Sale Price *</label>
+                        <input type="number" id="prod-sale" placeholder="80.00" />
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Quantity *</label>
+                        <input type="number" id="prod-qty" placeholder="10" />
+                    </div>
+                    <div class="field">
+                        <label>Condition</label>
+                        <select id="prod-condition">
+                            <option value="New">New</option>
+                            <option value="Open Box">Open Box</option>
+                            <option value="Refurbished">Refurbished</option>
+                            <option value="Slight Defect">Slight Defect</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Shop *</label>
+                    <select id="prod-shop"></select>
+                </div>
+                <div class="field">
+                    <label>Category</label>
+                    <select id="prod-category"></select>
+                </div>
+                <div class="field-check">
+                    <input type="checkbox" id="prod-urgent" />
+                    <label for="prod-urgent">Mark as urgent</label>
+                </div>
+                <div class="err-msg" id="prod-err"></div>
+                <button class="btn-save" id="prod-save-btn" onclick="saveProduct()" style="width:100%">
+                    Add Product
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Shop Modal -->
+    <div class="modal-overlay" id="add-shop-modal" onclick="if(event.target.id==='add-shop-modal')closeModal('add-shop-modal')">
+        <div class="modal" style="max-width:500px">
+            <div class="modal-hdr">
+                <h3>Create New Shop</h3>
+                <button class="modal-x" onclick="closeModal('add-shop-modal')">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="field">
+                    <label>Shop Name *</label>
+                    <input type="text" id="shop-name" placeholder="My Awesome Shop" />
+                </div>
+                <div class="field">
+                    <label>Description</label>
+                    <textarea id="shop-desc" rows="2" placeholder="What do you sell?"></textarea>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>City</label>
+                        <input type="text" id="shop-city" placeholder="Cape Town" />
+                    </div>
+                    <div class="field">
+                        <label>Province</label>
+                        <select id="shop-province">
+                            <option value="">Select</option>
+                            <option>Gauteng</option>
+                            <option>Western Cape</option>
+                            <option>KwaZulu-Natal</option>
+                            <option>Eastern Cape</option>
+                            <option>Limpopo</option>
+                            <option>Mpumalanga</option>
+                            <option>North West</option>
+                            <option>Free State</option>
+                            <option>Northern Cape</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Phone Number</label>
+                    <input type="tel" id="shop-phone" placeholder="081 234 5678" />
+                </div>
+                <div class="err-msg" id="shop-err"></div>
+                <button class="btn-save" id="shop-save-btn" onclick="saveShop()" style="width:100%">
+                    Create Shop
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Order Status Modal -->
+    <div class="modal-overlay" id="status-modal" onclick="if(event.target.id==='status-modal')closeModal('status-modal')">
+        <div class="modal" style="max-width:400px">
+            <div class="modal-hdr">
+                <h3>Update Order Status</h3>
+                <button class="modal-x" onclick="closeModal('status-modal')">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="color:#6b7280;font-size:14px;margin-bottom:1rem">
+                    Order #<span id="status-order-num"></span>
+                </p>
+                <div class="field">
+                    <label>New Status</label>
+                    <select id="status-select">
+                        <option value="Processing">Processing</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="field" id="tracking-field" style="display:none">
+                    <label>Tracking Number</label>
+                    <input type="text" id="tracking-number" placeholder="Enter tracking number" />
+                </div>
+                <div class="err-msg" id="status-err"></div>
+                <button class="btn-save" id="status-save-btn" onclick="updateOrderStatus()" style="width:100%">
+                    Update Status
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/seller-dashboard.js"></script>
+</body>
+</html>

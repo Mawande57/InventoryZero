@@ -34,5 +34,21 @@ namespace InventoryZeroAPI.Controllers
             var products = await _shopService.GetShopProductsAsync(id);
             return Ok(products);
         }
+        // In ShopsController.cs
+        /*[HttpPost("{id}/contact")]
+        [Authorize]
+        public async Task<IActionResult> ContactShop(int id, [FromBody] ContactMessageDto dto)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+                await _shopService.ContactShopAsync(id, userId, dto.Message);
+                return Ok(new { message = "Message sent." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }*/
     }
 }

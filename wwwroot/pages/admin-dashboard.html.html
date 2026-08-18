@@ -1,0 +1,211 @@
+﻿<!-- wwwroot/pages/admin-dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/admin-dashboard.css" />
+    <link rel="stylesheet" href="buyer-dashboard.css"/>
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/index.html">Home</a>
+            <a href="/pages/browse.html">Browse deals</a>
+            <a href="/pages/admin-dashboard.html" style="color:#fff;font-weight:500">Admin</a>
+        </div>
+        <div class="nav-right">
+            <span class="nav-user" id="nav-user">Admin</span>
+            <button class="btn-logout" onclick="logout()">
+                <i class="ti ti-logout"></i> Sign out
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <div class="dash-hero">
+        <div class="dh-grid"></div>
+        <div class="dh-glow"></div>
+        <div class="dh-inner">
+            <div class="dh-left">
+                <h1>Admin Dashboard</h1>
+                <p>Manage the entire platform</p>
+            </div>
+            <div class="dh-stats" id="stats-grid">
+                <div class="dh-stat"><div class="n">—</div><div class="l">Users</div></div>
+                <div class="dh-stat"><div class="n">—</div><div class="l">Sellers</div></div>
+                <div class="dh-stat"><div class="n">—</div><div class="l">Shops</div></div>
+                <div class="dh-stat"><div class="n">—</div><div class="l">Revenue</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="dash-body">
+        <div class="dash-tabs">
+            <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <i class="ti ti-dashboard"></i> Dashboard
+            </button>
+            <button class="tab-btn" data-tab="shops" onclick="switchTab('shops')">
+                <i class="ti ti-building-store"></i> Shops
+                <span class="badge" id="pending-badge">0</span>
+            </button>
+            <button class="tab-btn" data-tab="users" onclick="switchTab('users')">
+                <i class="ti ti-users"></i> Users
+            </button>
+            <button class="tab-btn" data-tab="products" onclick="switchTab('products')">
+                <i class="ti ti-box"></i> Products
+            </button>
+            <button class="tab-btn" data-tab="orders" onclick="switchTab('orders')">
+                <i class="ti ti-package"></i> Orders
+            </button>
+            <button class="tab-btn" data-tab="payouts" onclick="switchTab('payouts')">
+                <i class="ti ti-coin"></i> Payouts
+            </button>
+        </div>
+
+        <!-- Dashboard Overview -->
+        <div class="tab-content active" id="tab-dashboard">
+            <div class="quick-stats" id="quick-stats">
+                <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Total Orders</div></div>
+                <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Platform Fees</div></div>
+                <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Pending Payouts</div></div>
+                <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Open Disputes</div></div>
+            </div>
+            <div class="recent-section">
+                <h3>Recent Orders</h3>
+                <div id="recent-orders"></div>
+            </div>
+        </div>
+
+        <!-- Shops Management -->
+        <div class="tab-content" id="tab-shops">
+            <div class="tab-header">
+                <h2>Shop Management</h2>
+                <div class="filter-group">
+                    <select id="shop-status-filter" onchange="loadShops()">
+                        <option value="">All Shops</option>
+                        <option value="Pending">Pending Approval</option>
+                        <option value="Active">Active</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div id="shops-list">
+                <div class="shop-skeleton"></div>
+                <div class="shop-skeleton"></div>
+            </div>
+            <div class="pagination" id="shops-pagination"></div>
+        </div>
+
+        <!-- Users Management -->
+        <div class="tab-content" id="tab-users">
+            <div class="tab-header">
+                <h2>User Management</h2>
+                <div class="filter-group">
+                    <select id="user-role-filter" onchange="loadUsers()">
+                        <option value="">All Users</option>
+                        <option value="Buyer">Buyers</option>
+                        <option value="Seller">Sellers</option>
+                        <option value="Admin">Admins</option>
+                    </select>
+                </div>
+            </div>
+            <div id="users-list">
+                <div class="user-skeleton"></div>
+                <div class="user-skeleton"></div>
+            </div>
+            <div class="pagination" id="users-pagination"></div>
+        </div>
+
+        <!-- Products Management -->
+        <div class="tab-content" id="tab-products">
+            <div class="tab-header">
+                <h2>Product Management</h2>
+                <div class="filter-group">
+                    <select id="product-status-filter" onchange="loadProducts()">
+                        <option value="">All Products</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div id="products-list">
+                <div class="product-skeleton"></div>
+                <div class="product-skeleton"></div>
+            </div>
+            <div class="pagination" id="products-pagination"></div>
+        </div>
+
+        <!-- Orders Management -->
+        <div class="tab-content" id="tab-orders">
+            <div class="tab-header">
+                <h2>All Orders</h2>
+                <div class="filter-group">
+                    <select id="order-status-filter" onchange="loadAdminOrders()">
+                        <option value="">All Orders</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Processing">Processing</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+            </div>
+            <div id="orders-list">
+                <div class="order-skeleton"></div>
+                <div class="order-skeleton"></div>
+            </div>
+            <div class="pagination" id="orders-pagination"></div>
+        </div>
+
+        <!-- Payouts Management -->
+        <div class="tab-content" id="tab-payouts">
+            <div class="tab-header">
+                <h2>Payout Management</h2>
+                <div class="filter-group">
+                    <select id="payout-status-filter" onchange="loadPayouts()">
+                        <option value="">All Payouts</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Failed">Failed</option>
+                    </select>
+                    <button class="btn-primary" onclick="processPayouts()">
+                        <i class="ti ti-credit-card"></i> Process Pending
+                    </button>
+                </div>
+            </div>
+            <div id="payouts-list">
+                <div class="payout-skeleton"></div>
+                <div class="payout-skeleton"></div>
+            </div>
+            <div class="pagination" id="payouts-pagination"></div>
+        </div>
+    </div>
+
+    <!-- Shop Detail Modal -->
+    <div class="modal-overlay" id="shop-detail-modal" onclick="if(event.target.id==='shop-detail-modal')closeModal('shop-detail-modal')">
+        <div class="modal" style="max-width:600px">
+            <div class="modal-hdr">
+                <h3>Shop Details</h3>
+                <button class="modal-x" onclick="closeModal('shop-detail-modal')">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="shop-detail-content">
+                <div class="shop-detail-loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/admin-dashboard.js"></script>
+</body>
+</html>

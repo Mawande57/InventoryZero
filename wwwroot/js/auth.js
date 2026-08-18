@@ -19,15 +19,16 @@ function saveSession(data) {
         id: data.userId,
         fullName: data.fullName,
         email: data.email,
-        role: data.role
+        role: data.role,
+        hasShop: data.hasShop   // NEW — comes straight from AuthResponseDto.HasShop (real bool, JSON-serialized fine)
     }));
 }
 
-// Redirect based on role after login
-function redirectByRole(role) {
+function redirectByRole(role, hasShop) {
     if (role === 'Admin') window.location.href = '/pages/admin-dashboard.html';
-    else if (role === 'Seller') window.location.href = '/pages/seller-dashboard.html';
-    else window.location.href = '/pages/index.html';
+    else if (hasShop) window.location.href = '/pages/seller-dashboard.html';
+    else window.location.href = '/pages/index.html'
+        alert("You were not identified as  a user please wait patiently your identity will be resolved soon...");
 }
 
 // ── LOGIN PAGE ───────────────────────────────────────────
@@ -60,7 +61,7 @@ if (loginBtn) {
             }
 
             saveSession(data);
-            redirectByRole(data.role);
+            redirectByRole(data.role, data.hasShop);
 
         } catch (err) {
             showError('Could not connect to server. Try again.');
@@ -95,6 +96,8 @@ if (registerBtn) {
 
         if (!fullName || !email || !password) return showError('Please fill in all required fields.');
         if (password.length < 8) return showError('Password must be at least 8 characters.');
+        
+
 
         registerBtn.disabled = true;
         registerBtn.textContent = 'Creating account...';
@@ -115,7 +118,7 @@ if (registerBtn) {
             }
 
             saveSession(data);
-            redirectByRole(data.role);
+            redirectByRole(data.role, data.hasShop);
 
         } catch (err) {
             showError('Could not connect to server. Try again.');

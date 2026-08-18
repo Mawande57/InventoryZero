@@ -1,10 +1,7 @@
 using InventoryZeroAPI.Data;
 using InventoryZeroAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -23,6 +20,8 @@ builder.Services.AddScoped<IShopService, ShopService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISavedProductService, SavedProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ISellerService, SellerService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 // JWT Authentication setup
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -363,8 +363,27 @@ async function saveAddress() {
         btn.textContent = 'Add address';
     }
 }
+function renderDashboardSwitcher() {
+    const user = getUser();
+    if (!user || user.role === 'Admin') return;
+
+    const container = document.getElementById('dashboard-switcher');
+    if (!container) return;
+
+    if (user.hasShop) {
+        container.innerHTML = `
+          <button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">🛒 Buyer view</button>
+          <button class="btn-ghost" onclick="window.location.href='/pages/seller-dashboard.html'">🏪 Seller view</button>`;
+    } else {
+        container.innerHTML = `
+          <button class="btn-ghost" onclick="window.location.href='/pages/register.html?role=Seller'">🏪 Become a seller</button>`;
+    }
+}
+
+ // call alongside your existing init calls
 
 // ── INIT ─────────────────────────────────────────────────
 loadProfile();
 loadOrders();
 loadSaved();
+renderDashboardSwitcher();

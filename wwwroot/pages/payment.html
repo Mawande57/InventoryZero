@@ -1,0 +1,121 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/payment.css" />
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt" aria-hidden="true"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-secure">
+            <i class="ti ti-lock" aria-hidden="true"></i> Secure payment
+        </div>
+    </nav>
+
+    <div class="payment-hero">
+        <div class="ph-grid"></div>
+        <div class="ph-glow"></div>
+        <div class="ph-inner">
+            <div class="ch-steps">
+                <div class="step done"><div class="step-num"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i></div><span>Cart</span></div>
+                <div class="step-line"></div>
+                <div class="step done"><div class="step-num"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i></div><span>Checkout</span></div>
+                <div class="step-line"></div>
+                <div class="step active"><div class="step-num">3</div><span>Payment</span></div>
+                <div class="step-line"></div>
+                <div class="step inactive"><div class="step-num">4</div><span>Confirmed</span></div>
+            </div>
+            <div class="ph-title">Complete payment</div>
+        </div>
+    </div>
+
+    <div class="payment-body">
+        <div class="pay-left">
+
+            <!-- Order summary -->
+            <div class="pay-section">
+                <div class="pay-hdr"><h3><i class="ti ti-receipt" aria-hidden="true"></i>Order summary</h3></div>
+                <div class="pay-body" id="order-summary">
+                    <div class="summary-skeleton"></div>
+                </div>
+            </div>
+
+            <!-- Card form -->
+            <div class="pay-section">
+                <div class="pay-hdr">
+                    <h3><i class="ti ti-credit-card" aria-hidden="true"></i>Card details</h3>
+                    <div class="card-logos">
+                        <span class="card-logo">VISA</span>
+                        <span class="card-logo">MC</span>
+                    </div>
+                </div>
+                <div class="pay-body">
+                    <div class="field">
+                        <label>Cardholder name</label>
+                        <input type="text" id="card-name" placeholder="Name as on card" />
+                    </div>
+                    <div class="field">
+                        <label>Card number</label>
+                        <div class="card-input-wrap">
+                            <i class="ti ti-credit-card" aria-hidden="true"></i>
+                            <input type="text" id="card-number" placeholder="0000 0000 0000 0000"
+                                   maxlength="19" oninput="formatCard(this)" />
+                        </div>
+                    </div>
+                    <div class="field-row">
+                        <div class="field">
+                            <label>Expiry date</label>
+                            <input type="text" id="card-expiry" placeholder="MM/YY"
+                                   maxlength="5" oninput="formatExpiry(this)" />
+                        </div>
+                        <div class="field">
+                            <label>CVV</label>
+                            <div class="card-input-wrap">
+                                <input type="password" id="card-cvv" placeholder="•••" maxlength="4" />
+                                <i class="ti ti-help" aria-hidden="true" style="right:12px;left:auto"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="err-msg" id="pay-err"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="pay-right">
+            <div class="pay-total-card">
+                <div class="pt-label">Total to pay</div>
+                <div class="pt-amount" id="pay-amount">—</div>
+                <div class="pt-order" id="pay-order-num">—</div>
+                <button class="btn-pay" id="pay-btn" onclick="processPayment()">
+                    <i class="ti ti-lock" aria-hidden="true"></i>
+                    Pay <span id="pay-btn-amount">—</span>
+                </button>
+                <div class="pay-trust">
+                    <div class="trust-row"><i class="ti ti-shield-check" aria-hidden="true"></i>256-bit SSL encryption</div>
+                    <div class="trust-row"><i class="ti ti-eye-off" aria-hidden="true"></i>Card details never stored</div>
+                    <div class="trust-row"><i class="ti ti-receipt-refund" aria-hidden="true"></i>Dispute protection included</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing overlay -->
+    <div class="processing-overlay" id="processing-overlay">
+        <div class="processing-card">
+            <div class="processing-spinner"></div>
+            <h3>Processing payment...</h3>
+            <p>Please do not close this page</p>
+        </div>
+    </div>
+
+    <script src="/js/payment.js"></script>
+</body>
+</html>

@@ -58,18 +58,23 @@ function getToken() {
 function checkAuth() {
     const user = getUser();
     const navRight = document.getElementById('nav-right');
-    if (user) {
-        const dash = user.role === 'Seller'
-            ? '/pages/seller-dashboard.html'
-            : user.role === 'Admin'
-                ? '/pages/admin-dashboard.html'
-                : '/pages/buyer-dashboard.html';
+    if (!user) return;
 
-        navRight.innerHTML = `
-      <span style="font-size:13px;color:#666">Hi, ${user.fullName.split(' ')[0]}</span>
-      <button class="btn-solid" onclick="window.location.href='${dash}'">Dashboard</button>
-    `;
+    const isAdmin = user.role === 'Admin';
+    let dashboardLinks = '';
+
+    if (isAdmin) {
+        dashboardLinks = `<button class="btn-solid" onclick="window.location.href='/pages/admin-dashboard.html'">Dashboard</button>`;
+    } else {
+        dashboardLinks += `<button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">Buyer dashboard</button>`;
+        dashboardLinks += user.hasShop
+            ? `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`
+            : `<button class="btn-solid" onclick="window.location.href='/pages/register.html?role=Seller'">Become a seller</button>`;
     }
+
+    navRight.innerHTML = `
+      <span style="font-size:13px;color:#666">Hi, ${user.fullName.split(' ')[0]}</span>
+      ${dashboardLinks}`;
 }
 
 // ── HOW IT WORKS TABS ────────────────────────────────────

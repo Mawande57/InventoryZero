@@ -242,7 +242,179 @@ function handleContact() {
 // Get shopId from URL — shop-profile.html?id=1
 const urlParams = new URLSearchParams(window.location.search);
 const shopId = urlParams.get('id');
+// ── SAVE/UNSAVE PRODUCT ────────────────────────────────
+async function handleSave(productId) {
+    if (!getToken()) {
+        window.location.href = '/pages/login.html';
+        return;
+    }
 
+    try {
+        const res = await fetch(`${API}/saved-products`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getToken()
+            },
+            body: JSON.stringify(productId)
+        });
+
+        if (res.ok) {
+            // Toggle heart icon
+            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
+            hearts.forEach(heart => {
+                heart.classList.toggle('ti-heart');
+                heart.classList.toggle('ti-heart-filled');
+                heart.style.color = heart.classList.contains('ti-heart-filled') ? '#E24B4A' : '#6b7280';
+            });
+
+            // Show feedback
+            showToast('Product saved! ❤️');
+        } else if (res.status === 409) {
+            // Already saved - unsave it
+            await handleUnsave(productId);
+        }
+    } catch (e) {
+        console.error('Save error:', e);
+    }
+}
+
+async function handleUnsave(productId) {
+    try {
+        const res = await fetch(`${API}/saved-products/${productId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': 'Bearer ' + getToken()
+            }
+        });
+
+        if (res.ok) {
+            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
+            hearts.forEach(heart => {
+                heart.classList.remove('ti-heart-filled');
+                heart.classList.add('ti-heart');
+                heart.style.color = '#6b7280';
+            });
+            showToast('Removed from saved 🤍');
+        }
+    } catch (e) {
+        console.error('Unsave error:', e);
+    }
+}
+
+// ── TOAST NOTIFICATION ───────────────────────────────────
+function showToast(message) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = `
+            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+            background: #0a0a0a; color: #fff; padding: 10px 24px;
+            border-radius: 12px; font-size: 14px; z-index: 999;
+            transition: opacity 0.3s; opacity: 0;
+            pointer-events: none;
+        `;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
+// ── CHECK IF PRODUCT IS SAVED ───────────────────────────
+async function checkSavedStatus(productId) {
+    if (!getToken()) return;
+    try {
+        const res = await fetch(`${API}/saved-products`, {
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        const saved = await res.json();
+        const isSaved = saved.some(s => s.productId === productId);
+        if (isSaved) {
+            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
+            hearts.forEach(heart => {
+                heart.classList.remove('ti-heart');
+                heart.classList.add('ti-heart-filled');
+                heart.style.color = '#E24B4A';
+            });
+        }
+    } catch (e) {
+        console.error('Check saved error:', e);
+    }
+}
+function handleContact() {
+    if (!getToken()) {
+        window.location.href = '/pages/login.html';
+        return;
+    }
+
+    // Get shop ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopId = urlParams.get('id');
+
+    // Show contact modal with shop info
+    showContactModal(shopId);
+}
+
+function showContactModal(shopId) {
+    // Simple contact modal
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'contact-modal';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:400px">
+            <div class="modal-hdr">
+                <h3>Contact Seller</h3>
+                <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="color:#6b7280;font-size:14px;margin-bottom:1rem">
+                    Send a message to the shop owner. They'll respond via email.
+                </p>
+                <div class="field">
+                    <label>Your message</label>
+                    <textarea id="contact-msg" rows="4" style="width:100%;padding:10px;border:0.5px solid #e8e8e8;border-radius:10px;font-family:inherit;resize:vertical"></textarea>
+                </div>
+                <button class="btn-save" onclick="sendContactMessage(${shopId})" style="width:100%">
+                    Send message
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function sendContactMessage(shopId) {
+    const msg = document.getElementById('contact-msg').value.trim();
+    if (!msg) {
+        alert('Please write a message.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API}/shops/${shopId}/contact`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getToken()
+            },
+            body: JSON.stringify({ message: msg })
+        });
+
+        if (res.ok) {
+            alert('Message sent! The seller will get back to you.');
+            document.getElementById('contact-modal').remove();
+        } else {
+            alert('Could not send message. Try again.');
+        }
+    } catch (e) {
+        console.error('Contact error:', e);
+        alert('Something went wrong.');
+    }
+}
 if (!shopId) {
     document.getElementById('sh-name').textContent = 'No shop specified';
 } else {

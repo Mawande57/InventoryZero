@@ -1,4 +1,4 @@
-﻿const API = 'https://upturned-schnapps-ipad.ngrok-free.dev/api';
+﻿const API = 'https://localhost:7237/api';
 
 const EMOJIS = {
     'Clothing': '🧥', 'Electronics': '📱',
@@ -255,84 +255,8 @@ async function placeOrder() {
 // ── SUCCESS STATE ────────────────────────────────────────
 // ── SUCCESS STATE ────────────────────────────────────────
 async function showSuccess(order) {
-    try {
-        console.log('Initiating payment for order:', order.id);
-
-        const res = await fetch(`${API}/payments/initiate/${order.id}`, {
-            method: 'POST',
-            headers: authHeaders()
-        });
-
-        const payfast = await res.json();
-        console.log('PayFast response:', payfast);
-
-        // Build the form
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = payfast.paymentUrl;
-        form.acceptCharset = 'UTF-8';
-
-        // 🔑 CRITICAL: Add fields in alphabetical order
-        // Get the keys and sort them alphabetically
-        const sortedKeys = Object.keys(payfast.formData).sort();
-
-        sortedKeys.forEach(key => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = payfast.formData[key];
-            form.appendChild(input);
-        });
-
-        document.body.appendChild(form);
-
-        // Log the form data
-        console.log('=== FORM DATA BEING SUBMITTED ===');
-        sortedKeys.forEach(key => {
-            console.log(`${key}: ${payfast.formData[key]}`);
-        });
-        console.log('===================================');
-
-        // Show message before redirect
-        const overlay = document.createElement('div');
-        overlay.className = 'success-overlay open';
-        overlay.innerHTML = `
-            <div class="success-card">
-                <div class="success-icon">
-                    <i class="ti ti-lock" aria-hidden="true"></i>
-                </div>
-                <h2>Order placed!</h2>
-                <p>Redirecting you to PayFast to complete your payment securely...</p>
-                <div class="success-order">${order.orderNumber}</div>
-                <div style="font-size:13px;color:#6b7280">Please do not close this page</div>
-            </div>`;
-        document.body.appendChild(overlay);
-
-        // Submit after 2 seconds
-        setTimeout(() => {
-            console.log('Submitting form to PayFast...');
-            form.submit();
-        }, 2000);
-
-    } catch (e) {
-        console.error('Payment initiation failed:', e);
-        const overlay = document.createElement('div');
-        overlay.className = 'success-overlay open';
-        overlay.innerHTML = `
-     <div class="success-card">
-         <div class="success-icon">
-             <i class="ti ti-check" aria-hidden="true"></i>
-         </div>
-         <h2>Order placed!</h2>
-         <p>Your order has been placed. Complete payment from your dashboard.</p>
-         <div class="success-order">${order.orderNumber}</div>
-         <button class="btn-go-dash"
-             onclick="window.location.href='/pages/buyer-dashboard.html'">
-             View my orders
-         </button>
-     </div>`;
-        document.body.appendChild(overlay);
-    }
+    // Redirect to payment page with order details
+    window.location.href = `/pages/payment.html?orderId=${order.id}&orderNumber=${order.orderNumber}&amount=${order.totalAmount}`;
 }
 
 // ── INIT ─────────────────────────────────────────────────

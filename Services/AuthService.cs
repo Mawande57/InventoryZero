@@ -25,61 +25,53 @@ namespace InventoryZeroAPI.Services
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
         {
-            // 1. Check if email already exists
-            var exists = await _context.Users
-                .AnyAsync(u => u.Email == dto.Email);
-
+            var exists = await _context.Users.AnyAsync(u => u.Email == dto.Email);
             if (exists)
                 throw new Exception("Email already registered.");
 
-            // 2. Hash the password — NEVER store plain text
             var hash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
-            // 3. Create the user
             var user = new User
             {
                 FullName = dto.FullName,
                 Email = dto.Email,
                 PasswordHash = hash,
                 PhoneNumber = dto.PhoneNumber,
-                Role = dto.Role,
+                Role = "Buyer",
                 CreatedAt = DateTime.Now,
                 IsActive = true
             };
-
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // 4. Generate JWT token and return
+            // Brand new user, so this is always false — but keep it explicit for clarity
+            var hasShop = await _context.Shops.AnyAsync(s => s.UserId == user.Id);
+
             return GenerateResponse(user);
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
         {
-            // 1. Find the user by email
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == dto.Email);
-
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
             if (user == null)
                 throw new Exception("Invalid email or password.");
 
-            // 2. Verify password against stored hash
             var valid = BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash);
-
             if (!valid)
                 throw new Exception("Invalid email or password.");
 
-            // 3. Update last login
             user.LastLoginAt = DateTime.Now;
             await _context.SaveChangesAsync();
 
-            // 4. Return token
+            var hasShop = await _context.Shops.AnyAsync(s => s.UserId == user.Id);
+
             return GenerateResponse(user);
         }
 
         // Builds the JWT token and response
         private AuthResponseDto GenerateResponse(User user)
         {
+            var hasShop =  _context.Shops.Any(s => s.UserId == user.Id);
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
 
@@ -91,7 +83,8 @@ namespace InventoryZeroAPI.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("hasShop", hasShop.ToString())
             };
 
             var token = new JwtSecurityToken(
@@ -108,7 +101,8 @@ namespace InventoryZeroAPI.Services
                 UserId = user.Id,
                 FullName = user.FullName,
                 Email = user.Email,
-                Role = user.Role
+                Role = user.Role,
+                HasShop = hasShop
             };
         }
     }

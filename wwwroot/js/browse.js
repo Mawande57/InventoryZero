@@ -50,17 +50,25 @@ function getUser() {
 function checkAuth() {
     const user = getUser();
     const navRight = document.getElementById('nav-right');
-    if (user) {
-        const dash = user.role === 'Seller'
-            ? '/pages/seller-dashboard.html'
-            : user.role === 'Admin'
-                ? '/pages/admin-dashboard.html'
-                : '/pages/buyer-dashboard.html';
-        navRight.innerHTML = `
-      <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
-      <button class="btn-solid" onclick="window.location.href='${dash}'">Dashboard</button>`;
+    if (!user) return;
+
+    const isAdmin = user.role === 'Admin';
+    let dashboardLinks = '';
+
+    if (isAdmin) {
+        dashboardLinks = `<button class="btn-solid" onclick="window.location.href='/pages/admin-dashboard.html'">Dashboard</button>`;
+    } else {
+        dashboardLinks += `<button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">Buyer dashboard</button>`;
+        dashboardLinks += user.hasShop
+            ? `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`
+            : `<button class="btn-solid" onclick="window.location.href='/pages/register.html?role=Seller'">Become a seller</button>`;
     }
+
+    navRight.innerHTML = `
+      <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
+      ${dashboardLinks}`;
 }
+
 
 // ── FILTER HELPERS ───────────────────────────────────────
 function selectCat(el) {
@@ -326,14 +334,7 @@ function closeModal() {
     document.getElementById('modal').classList.remove('open');
 }
 
-function handleSave(productId) {
-    if (!getToken()) {
-        window.location.href = '/pages/login.html';
-        return;
-    }
-    // Save API call — Phase 3
-    console.log('Save product', productId);
-}
+
 
 // ── INIT ─────────────────────────────────────────────────
 
@@ -345,7 +346,107 @@ if (urlParams.get('search')) {
     state.search = urlParams.get('search');
     document.getElementById('search-input').value = state.search;
 }
+// ── SAVE/UNSAVE PRODUCT ────────────────────────────────
+async function handleSave(productId) {
+    if (!getToken()) {
+        window.location.href = '/pages/login.html';
+        return;
+    }
 
+    try {
+        const res = await fetch(`${API}/saved-products`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + getToken()
+            },
+            body: JSON.stringify(productId)
+        });
+
+        if (res.ok) {
+            // Toggle heart icon
+            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
+            hearts.forEach(heart => {
+                heart.classList.toggle('ti-heart');
+                heart.classList.toggle('ti-heart-filled');
+                heart.style.color = heart.classList.contains('ti-heart-filled') ? '#E24B4A' : '#6b7280';
+            });
+
+            // Show feedback
+            showToast('Product saved! ❤️');
+        } else if (res.status === 409) {
+            // Already saved - unsave it
+            await handleUnsave(productId);
+        }
+    } catch (e) {
+        console.error('Save error:', e);
+    }
+}
+
+async function handleUnsave(productId) {
+    try {
+        const res = await fetch(`${API}/saved-products/${productId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': 'Bearer ' + getToken()
+            }
+        });
+
+        if (res.ok) {
+            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
+            hearts.forEach(heart => {
+                heart.classList.remove('ti-heart-filled');
+                heart.classList.add('ti-heart');
+                heart.style.color = '#6b7280';
+            });
+            showToast('Removed from saved 🤍');
+        }
+    } catch (e) {
+        console.error('Unsave error:', e);
+    }
+}
+
+// ── TOAST NOTIFICATION ───────────────────────────────────
+function showToast(message) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = `
+            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+            background: #0a0a0a; color: #fff; padding: 10px 24px;
+            border-radius: 12px; font-size: 14px; z-index: 999;
+            transition: opacity 0.3s; opacity: 0;
+            pointer-events: none;
+        `;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
+// ── CHECK IF PRODUCT IS SAVED ───────────────────────────
+async function checkSavedStatus(productId) {
+    if (!getToken()) return;
+    try {
+        const res = await fetch(`${API}/saved-products`, {
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        const saved = await res.json();
+        const isSaved = saved.some(s => s.productId === productId);
+        if (isSaved) {
+            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
+            hearts.forEach(heart => {
+                heart.classList.remove('ti-heart');
+                heart.classList.add('ti-heart-filled');
+                heart.style.color = '#E24B4A';
+            });
+        }
+    } catch (e) {
+        console.error('Check saved error:', e);
+    }
+}
 checkAuth();
 loadCategories();
 loadDeals();

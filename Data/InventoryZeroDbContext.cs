@@ -538,6 +538,22 @@ public partial class InventoryZeroDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__UserAddre__UserI__09A971A2");
         });
+        var adminId = 45;
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123");
+
+        modelBuilder.Entity<User>().HasData(
+            new User
+            {
+                Id = adminId,
+                Email = "admin@inventoryzero.com",
+                FullName = "System Administrator",
+                PasswordHash = passwordHash,
+                Role = "Admin",
+                IsActive = true,
+                IsEmailVerified = true,
+                CreatedAt = DateTime.Now
+            }
+        );
 
         OnModelCreatingPartial(modelBuilder);
     }

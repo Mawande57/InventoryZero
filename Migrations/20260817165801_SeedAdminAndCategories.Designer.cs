@@ -4,6 +4,7 @@ using InventoryZeroAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InventoryZeroAPI.Migrations
 {
     [DbContext(typeof(InventoryZeroDbContext))]
-    partial class InventoryZeroDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260817165801_SeedAdminAndCategories")]
+    partial class SeedAdminAndCategories
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1021,14 +1024,14 @@ namespace InventoryZeroAPI.Migrations
                     b.HasData(
                         new
                         {
-                            Id = 45,
-                            CreatedAt = new DateTime(2026, 8, 18, 12, 0, 27, 234, DateTimeKind.Local).AddTicks(6015),
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 8, 17, 18, 58, 0, 10, DateTimeKind.Local).AddTicks(580),
                             Email = "admin@inventoryzero.com",
                             FullName = "System Administrator",
                             IsActive = true,
                             IsEmailVerified = true,
                             IsPhoneVerified = false,
-                            PasswordHash = "$2a$11$Wk3Ex8XDFX9Fatdy3eeCweUdMJeKZ0QQMOuC57DAHo6UkVfCVkeWq",
+                            PasswordHash = "$2a$11$BYM2muT275Fy4479ZuXBs.sDMbiFFsDG5X5uNJUTksfGkIQShvrQO",
                             Rating = 0m,
                             Role = "Admin",
                             TotalReviews = 0

@@ -46,5 +46,6 @@ namespace InventoryZeroAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
     }
 }
