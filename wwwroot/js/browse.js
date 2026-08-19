@@ -28,6 +28,9 @@ let state = {
     sortBy: 'newest', page: 1, pageSize: 12
 };
 
+// Tracks which product IDs the current user has saved
+let savedIds = new Set();
+
 // ── HELPERS ──────────────────────────────────────────────
 function fmt(n) { return 'R' + Number(n).toLocaleString('en-ZA'); }
 
@@ -218,7 +221,7 @@ async function loadDeals() {
                  </div>`
                 : ''}
           </div>
-          <button class="deal-save-btn" onclick="event.stopPropagation();handleSave(${p.id})">
+          <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
             <i class="ti ti-heart" aria-hidden="true"></i>
           </button>
         </div>
@@ -244,6 +247,7 @@ async function loadDeals() {
       </div>`).join('');
 
         renderPagination(data);
+        applySavedState(); // re-apply heart state to freshly rendered cards
 
     } catch (e) {
         document.getElementById('deals-grid').innerHTML = `
@@ -322,10 +326,11 @@ function openModal(p) {
         else window.location.href = '/pages/checkout.html?slug=' + p.slug;
     };
 
-    document.getElementById('m-save').onclick = () => {
-        if (!getToken()) window.location.href = '/pages/login.html';
-        else handleSave(p.id);
-    };
+    // Wire the modal's heart button to the same product, and reflect current saved state
+    const saveBtn = document.getElementById('m-save');
+    saveBtn.dataset.productId = p.id;
+    saveBtn.onclick = () => toggleSave(p.id);
+    setHeartVisual(saveBtn, savedIds.has(p.id));
 
     document.getElementById('modal').classList.add('open');
 }
@@ -333,8 +338,6 @@ function openModal(p) {
 function closeModal() {
     document.getElementById('modal').classList.remove('open');
 }
-
-
 
 // ── INIT ─────────────────────────────────────────────────
 
@@ -346,63 +349,80 @@ if (urlParams.get('search')) {
     state.search = urlParams.get('search');
     document.getElementById('search-input').value = state.search;
 }
-// ── SAVE/UNSAVE PRODUCT ────────────────────────────────
-async function handleSave(productId) {
+
+// ── SAVE/UNSAVE PRODUCT (unified) ───────────────────────
+
+// Sets the heart icon's visual state on a single button element
+function setHeartVisual(btn, saved) {
+    const icon = btn.querySelector('i');
+    if (!icon) return;
+    icon.classList.toggle('ti-heart', !saved);
+    icon.classList.toggle('ti-heart-filled', saved);
+    icon.style.color = saved ? '#E24B4A' : '#6b7280';
+}
+
+// Re-applies savedIds to every save button currently in the DOM
+function applySavedState() {
+    document.querySelectorAll('[data-product-id]').forEach(btn => {
+        const id = Number(btn.dataset.productId);
+        setHeartVisual(btn, savedIds.has(id));
+    });
+}
+
+// Loads the user's saved product IDs once, so hearts are correct on page load/refresh
+async function loadSavedIds() {
+    if (!getToken()) return;
+    try {
+        const res = await fetch(`${API}/saved-products`, {
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            savedIds = new Set(data.map(s => s.productId));
+            applySavedState();
+        }
+    } catch (e) {
+        console.error('Could not load saved products', e);
+    }
+}
+
+// Single entry point for both card hearts and the modal heart
+async function toggleSave(productId) {
     if (!getToken()) {
         window.location.href = '/pages/login.html';
         return;
     }
 
-    try {
-        const res = await fetch(`${API}/saved-products`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + getToken()
-            },
-            body: JSON.stringify(productId)
-        });
+    const currentlySaved = savedIds.has(productId);
 
-        if (res.ok) {
-            // Toggle heart icon
-            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
-            hearts.forEach(heart => {
-                heart.classList.toggle('ti-heart');
-                heart.classList.toggle('ti-heart-filled');
-                heart.style.color = heart.classList.contains('ti-heart-filled') ? '#E24B4A' : '#6b7280';
+    try {
+        if (currentlySaved) {
+            const res = await fetch(`${API}/saved-products/${productId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + getToken() }
             });
-
-            // Show feedback
-            showToast('Product saved! ❤️');
-        } else if (res.status === 409) {
-            // Already saved - unsave it
-            await handleUnsave(productId);
-        }
-    } catch (e) {
-        console.error('Save error:', e);
-    }
-}
-
-async function handleUnsave(productId) {
-    try {
-        const res = await fetch(`${API}/saved-products/${productId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': 'Bearer ' + getToken()
+            if (res.ok) {
+                savedIds.delete(productId);
+                document.querySelectorAll(`[data-product-id="${productId}"]`).forEach(btn => setHeartVisual(btn, false));
+                showToast('Removed from saved 🤍');
             }
-        });
-
-        if (res.ok) {
-            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
-            hearts.forEach(heart => {
-                heart.classList.remove('ti-heart-filled');
-                heart.classList.add('ti-heart');
-                heart.style.color = '#6b7280';
+        } else {
+            const res = await fetch(`${API}/saved-products`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getToken()
+                },
+                body: JSON.stringify(productId) // bare int — matches [FromBody] int productId
             });
-            showToast('Removed from saved 🤍');
+            if (res.ok) {
+                savedIds.add(productId);
+                document.querySelectorAll(`[data-product-id="${productId}"]`).forEach(btn => setHeartVisual(btn, true));
+                showToast('Product saved! ❤️');
+            }
         }
     } catch (e) {
-        console.error('Unsave error:', e);
+        console.error('Save toggle error:', e);
     }
 }
 
@@ -426,27 +446,7 @@ function showToast(message) {
     setTimeout(() => { toast.style.opacity = '0'; }, 2500);
 }
 
-// ── CHECK IF PRODUCT IS SAVED ───────────────────────────
-async function checkSavedStatus(productId) {
-    if (!getToken()) return;
-    try {
-        const res = await fetch(`${API}/saved-products`, {
-            headers: { 'Authorization': 'Bearer ' + getToken() }
-        });
-        const saved = await res.json();
-        const isSaved = saved.some(s => s.productId === productId);
-        if (isSaved) {
-            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
-            hearts.forEach(heart => {
-                heart.classList.remove('ti-heart');
-                heart.classList.add('ti-heart-filled');
-                heart.style.color = '#E24B4A';
-            });
-        }
-    } catch (e) {
-        console.error('Check saved error:', e);
-    }
-}
 checkAuth();
 loadCategories();
 loadDeals();
+loadSavedIds();

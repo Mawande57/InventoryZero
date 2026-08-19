@@ -32,25 +32,133 @@ function getUser() {
     return u ? JSON.parse(u) : null;
 }
 
+// ── SAVED STATE ──────────────────────────────────────────
+let savedIds = new Set();
+
 // ── NAV AUTH CHECK ───────────────────────────────────────
 function checkAuth() {
     const user = getUser();
     const navRight = document.getElementById('nav-right');
-    if (user) {
-        const dash = user.role === 'Seller'
-            ? '/pages/seller-dashboard.html'
-            : user.role === 'Admin'
-                ? '/pages/admin-dashboard.html'
-                : '/pages/buyer-dashboard.html';
-        navRight.innerHTML = `
-      <span style="font-size:13px;color:rgba(255,255,255,0.6)">
-        Hi, ${user.fullName.split(' ')[0]}
-      </span>
-      <button class="btn-solid" onclick="window.location.href='${dash}'">Dashboard</button>`;
+    if (!user) return;
+
+    const isAdmin = user.role === 'Admin';
+    let dashboardLinks = '';
+
+    if (isAdmin) {
+        dashboardLinks = `<button class="btn-solid" onclick="window.location.href='/pages/admin-dashboard.html'">Dashboard</button>`;
+    } else {
+        dashboardLinks += `<button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">Buyer dashboard</button>`;
+        dashboardLinks += user.hasShop
+            ? `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`
+            : `<button class="btn-solid" onclick="window.location.href='/pages/register.html?role=Seller'">Become a seller</button>`;
+    }
+
+    navRight.innerHTML = `
+        <span style="font-size:13px;color:rgba(255,255,255,0.6)">
+            Hi, ${user.fullName.split(' ')[0]}
+        </span>
+        ${dashboardLinks}`;
+}
+
+// ── HEART VISUAL HELPERS ─────────────────────────────────
+
+function setHeartVisual(btn, saved) {
+    const icon = btn.querySelector('i');
+    if (!icon) return;
+    icon.classList.toggle('ti-heart', !saved);
+    icon.classList.toggle('ti-heart-filled', saved);
+    icon.style.color = saved ? '#E24B4A' : '#6b7280';
+}
+
+function applySavedState() {
+    document.querySelectorAll('[data-product-id]').forEach(btn => {
+        const id = Number(btn.dataset.productId);
+        setHeartVisual(btn, savedIds.has(id));
+    });
+}
+
+// ── LOAD SAVED IDs ───────────────────────────────────────
+
+async function loadSavedIds() {
+    if (!getToken()) return;
+    try {
+        const res = await fetch(`${API}/saved-products`, {
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            savedIds = new Set(data.map(s => s.productId));
+            applySavedState();
+        }
+    } catch (e) {
+        console.error('Could not load saved products', e);
     }
 }
 
+// ── TOGGLE SAVE ──────────────────────────────────────────
+
+async function toggleSave(productId) {
+    if (!getToken()) {
+        window.location.href = '/pages/login.html';
+        return;
+    }
+
+    const currentlySaved = savedIds.has(productId);
+
+    try {
+        if (currentlySaved) {
+            const res = await fetch(`${API}/saved-products/${productId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + getToken() }
+            });
+            if (res.ok) {
+                savedIds.delete(productId);
+                document.querySelectorAll(`[data-product-id="${productId}"]`).forEach(btn => setHeartVisual(btn, false));
+                showToast('Removed from saved 🤍');
+            }
+        } else {
+            const res = await fetch(`${API}/saved-products`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getToken()
+                },
+                body: JSON.stringify(productId)
+            });
+            if (res.ok) {
+                savedIds.add(productId);
+                document.querySelectorAll(`[data-product-id="${productId}"]`).forEach(btn => setHeartVisual(btn, true));
+                showToast('Product saved! ❤️');
+            }
+        }
+    } catch (e) {
+        console.error('Save toggle error:', e);
+    }
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+
+function showToast(message) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = `
+            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+            background: #0a0a0a; color: #fff; padding: 10px 24px;
+            border-radius: 12px; font-size: 14px; z-index: 999;
+            transition: opacity 0.3s; opacity: 0;
+            pointer-events: none;
+        `;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
 // ── LOAD SHOP PROFILE ────────────────────────────────────
+
 async function loadShop(shopId) {
     try {
         const res = await fetch(`${API}/shops/${shopId}`);
@@ -114,6 +222,7 @@ async function loadShop(shopId) {
 }
 
 // ── LOAD SHOP PRODUCTS ───────────────────────────────────
+
 async function loadProducts(shopId) {
     try {
         const res = await fetch(`${API}/shops/${shopId}/products`);
@@ -126,58 +235,63 @@ async function loadProducts(shopId) {
 
         if (products.length === 0) {
             document.getElementById('deals-grid').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📭</div>
-          <h3>No active listings</h3>
-          <p>This shop has no deals right now. Check back soon.</p>
-        </div>`;
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <h3>No active listings</h3>
+                    <p>This shop has no deals right now. Check back soon.</p>
+                </div>`;
             return;
         }
 
         document.getElementById('deals-grid').innerHTML = products.map(p => `
-      <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
-        <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
-          ${EMOJIS[p.categoryName] || '📦'}
-          <div class="deal-badges">
-            <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
-            ${p.isUrgent
+            <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
+                <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
+                    ${EMOJIS[p.categoryName] || '📦'}
+                    <div class="deal-badges">
+                        <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
+                        ${p.isUrgent
                 ? `<div class="badge-urgent">
-                   <i class="ti ti-clock" aria-hidden="true"></i>
-                   ${daysLeft(p.listingEndDate)}
-                 </div>`
+                                <i class="ti ti-clock" aria-hidden="true"></i>
+                                ${daysLeft(p.listingEndDate)}
+                            </div>`
                 : ''}
-          </div>
-          <button class="deal-save-btn" onclick="event.stopPropagation();handleSave(${p.id})">
-            <i class="ti ti-heart" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div class="deal-body">
-          <div class="deal-cat">${p.categoryName || 'General'}</div>
-          <div class="deal-title">${p.title}</div>
-          <div class="deal-shop">${p.shopName}</div>
-          <div class="deal-pricing">
-            <span class="deal-price">${fmt(p.salePrice)}</span>
-            <span class="deal-orig">${fmt(p.originalPrice)}</span>
-          </div>
-          <div class="deal-foot">
-            <span class="deal-stock">
-              <span class="stock-dot"></span>
-              ${p.remainingQuantity} left
-            </span>
-            <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)}</span>
-          </div>
-        </div>
-      </div>`).join('');
+                    </div>
+                    <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
+                        <i class="ti ti-heart" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="deal-body">
+                    <div class="deal-cat">${p.categoryName || 'General'}</div>
+                    <div class="deal-title">${p.title}</div>
+                    <div class="deal-shop">${p.shopName}</div>
+                    <div class="deal-pricing">
+                        <span class="deal-price">${fmt(p.salePrice)}</span>
+                        <span class="deal-orig">${fmt(p.originalPrice)}</span>
+                    </div>
+                    <div class="deal-foot">
+                        <span class="deal-stock">
+                            <span class="stock-dot"></span>
+                            ${p.remainingQuantity} left
+                        </span>
+                        <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // Apply saved state after rendering
+        applySavedState();
 
     } catch (e) {
         document.getElementById('deals-grid').innerHTML = `
-      <p style="font-size:13px;color:#666;padding:1rem;grid-column:1/-1">
-        Could not load listings.
-      </p>`;
+            <p style="font-size:13px;color:#666;padding:1rem;grid-column:1/-1">
+                Could not load listings.
+            </p>`;
     }
 }
 
 // ── MODAL ────────────────────────────────────────────────
+
 function openModal(p) {
     const modalHero = document.getElementById('m-img');
     modalHero.style.background = CAT_COLORS[p.categoryName] || '#f5f5f3';
@@ -197,6 +311,12 @@ function openModal(p) {
     document.getElementById('m-ends').textContent = daysLeft(p.listingEndDate);
     document.getElementById('m-shop').textContent = p.shopName;
     document.getElementById('m-shoploc').textContent = p.shopCity || '';
+
+    // ✅ FIX: Make shop row clickable
+    document.getElementById('m-shop-row').onclick = () => {
+        window.location.href = '/pages/shop-profile.html?id=' + p.shopId;
+    };
+
     document.getElementById('m-verified').innerHTML =
         '<i class="ti ti-shield-check" aria-hidden="true"></i> Verified';
     document.getElementById('m-desc').textContent =
@@ -209,10 +329,11 @@ function openModal(p) {
         else window.location.href = '/pages/checkout.html?slug=' + p.slug;
     };
 
-    document.getElementById('m-save').onclick = () => {
-        if (!getToken()) window.location.href = '/pages/login.html';
-        else handleSave(p.id);
-    };
+    // ✅ FIX: Wire up the modal save button
+    const saveBtn = document.getElementById('m-save');
+    saveBtn.dataset.productId = p.id;
+    saveBtn.onclick = () => toggleSave(p.id);
+    setHeartVisual(saveBtn, savedIds.has(p.id));
 
     document.getElementById('modal').classList.add('open');
 }
@@ -221,128 +342,8 @@ function closeModal() {
     document.getElementById('modal').classList.remove('open');
 }
 
-function handleSave(productId) {
-    if (!getToken()) {
-        window.location.href = '/pages/login.html';
-        return;
-    }
-    console.log('Save product', productId);
-}
+// ── CONTACT SELLER ───────────────────────────────────────
 
-function handleContact() {
-    if (!getToken()) {
-        window.location.href = '/pages/login.html';
-    } else {
-        alert('Messaging coming in Phase 6.');
-    }
-}
-
-// ── INIT ───────────────────────────────────t ──────────────
-
-// Get shopId from URL — shop-profile.html?id=1
-const urlParams = new URLSearchParams(window.location.search);
-const shopId = urlParams.get('id');
-// ── SAVE/UNSAVE PRODUCT ────────────────────────────────
-async function handleSave(productId) {
-    if (!getToken()) {
-        window.location.href = '/pages/login.html';
-        return;
-    }
-
-    try {
-        const res = await fetch(`${API}/saved-products`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + getToken()
-            },
-            body: JSON.stringify(productId)
-        });
-
-        if (res.ok) {
-            // Toggle heart icon
-            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
-            hearts.forEach(heart => {
-                heart.classList.toggle('ti-heart');
-                heart.classList.toggle('ti-heart-filled');
-                heart.style.color = heart.classList.contains('ti-heart-filled') ? '#E24B4A' : '#6b7280';
-            });
-
-            // Show feedback
-            showToast('Product saved! ❤️');
-        } else if (res.status === 409) {
-            // Already saved - unsave it
-            await handleUnsave(productId);
-        }
-    } catch (e) {
-        console.error('Save error:', e);
-    }
-}
-
-async function handleUnsave(productId) {
-    try {
-        const res = await fetch(`${API}/saved-products/${productId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': 'Bearer ' + getToken()
-            }
-        });
-
-        if (res.ok) {
-            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
-            hearts.forEach(heart => {
-                heart.classList.remove('ti-heart-filled');
-                heart.classList.add('ti-heart');
-                heart.style.color = '#6b7280';
-            });
-            showToast('Removed from saved 🤍');
-        }
-    } catch (e) {
-        console.error('Unsave error:', e);
-    }
-}
-
-// ── TOAST NOTIFICATION ───────────────────────────────────
-function showToast(message) {
-    let toast = document.getElementById('toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'toast';
-        toast.style.cssText = `
-            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
-            background: #0a0a0a; color: #fff; padding: 10px 24px;
-            border-radius: 12px; font-size: 14px; z-index: 999;
-            transition: opacity 0.3s; opacity: 0;
-            pointer-events: none;
-        `;
-        document.body.appendChild(toast);
-    }
-    toast.textContent = message;
-    toast.style.opacity = '1';
-    setTimeout(() => { toast.style.opacity = '0'; }, 2500);
-}
-
-// ── CHECK IF PRODUCT IS SAVED ───────────────────────────
-async function checkSavedStatus(productId) {
-    if (!getToken()) return;
-    try {
-        const res = await fetch(`${API}/saved-products`, {
-            headers: { 'Authorization': 'Bearer ' + getToken() }
-        });
-        const saved = await res.json();
-        const isSaved = saved.some(s => s.productId === productId);
-        if (isSaved) {
-            const hearts = document.querySelectorAll(`.deal-save-btn[data-product-id="${productId}"] i, .btn-save-p i`);
-            hearts.forEach(heart => {
-                heart.classList.remove('ti-heart');
-                heart.classList.add('ti-heart-filled');
-                heart.style.color = '#E24B4A';
-            });
-        }
-    } catch (e) {
-        console.error('Check saved error:', e);
-    }
-}
 function handleContact() {
     if (!getToken()) {
         window.location.href = '/pages/login.html';
@@ -353,6 +354,11 @@ function handleContact() {
     const urlParams = new URLSearchParams(window.location.search);
     const shopId = urlParams.get('id');
 
+    if (!shopId) {
+        alert('Shop not found.');
+        return;
+    }
+
     // Show contact modal with shop info
     showContactModal(shopId);
 }
@@ -362,6 +368,7 @@ function showContactModal(shopId) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'contact-modal';
+    overlay.style.display = 'flex';
     overlay.innerHTML = `
         <div class="modal" style="max-width:400px">
             <div class="modal-hdr">
@@ -408,17 +415,26 @@ async function sendContactMessage(shopId) {
             alert('Message sent! The seller will get back to you.');
             document.getElementById('contact-modal').remove();
         } else {
-            alert('Could not send message. Try again.');
+            const data = await res.json();
+            alert(data.message || 'Could not send message. Try again.');
         }
     } catch (e) {
         console.error('Contact error:', e);
         alert('Something went wrong.');
     }
 }
+
+// ── INIT ─────────────────────────────────────────────────
+
+// Get shopId from URL — shop-profile.html?id=1
+const urlParams = new URLSearchParams(window.location.search);
+const shopId = urlParams.get('id');
+
 if (!shopId) {
     document.getElementById('sh-name').textContent = 'No shop specified';
 } else {
     checkAuth();
     loadShop(shopId);
     loadProducts(shopId);
+    loadSavedIds(); // ✅ Load saved state for hearts
 }

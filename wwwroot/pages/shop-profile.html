@@ -123,7 +123,7 @@
                     <div class="mg-item"><div class="mg-label">Location</div><div class="mg-val" id="m-city"></div></div>
                     <div class="mg-item"><div class="mg-label">Ends in</div><div class="mg-val" id="m-ends"></div></div>
                 </div>
-                <div class="modal-shop-row">
+                <div class="modal-shop-row" id="m-shop-row">
                     <div class="ms-avatar"><i class="ti ti-building-store" aria-hidden="true"></i></div>
                     <div>
                         <div class="ms-name" id="m-shop"></div>
@@ -134,7 +134,7 @@
                 <p class="modal-desc" id="m-desc"></p>
                 <div class="modal-actions">
                     <button class="btn-buy" id="m-buy">Buy now</button>
-                    <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();handleSave(${p.id})">
+                    <button class="btn-save-p" id="m-save">
                         <i class="ti ti-heart" aria-hidden="true"></i>
                     </button>
                 </div>

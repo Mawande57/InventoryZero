@@ -53,6 +53,9 @@ function getToken() {
     return localStorage.getItem('token');
 }
 
+// ── SAVED STATE ──────────────────────────────────────────
+let savedIds = new Set();
+
 // ── NAV — show user info if logged in ────────────────────
 
 function checkAuth() {
@@ -73,7 +76,7 @@ function checkAuth() {
     }
 
     navRight.innerHTML = `
-      <span style="font-size:13px;color:#666">Hi, ${user.fullName.split(' ')[0]}</span>
+      <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
       ${dashboardLinks}`;
 }
 
@@ -96,13 +99,109 @@ function switchTab(tab, el) {
     renderSteps(tab);
 }
 
+// ── HEART VISUAL HELPERS ─────────────────────────────────
+
+function setHeartVisual(btn, saved) {
+    const icon = btn.querySelector('i');
+    if (!icon) return;
+    icon.classList.toggle('ti-heart', !saved);
+    icon.classList.toggle('ti-heart-filled', saved);
+    icon.style.color = saved ? '#E24B4A' : '#6b7280';
+}
+
+function applySavedState() {
+    document.querySelectorAll('[data-product-id]').forEach(btn => {
+        const id = Number(btn.dataset.productId);
+        setHeartVisual(btn, savedIds.has(id));
+    });
+}
+
+// ── LOAD SAVED IDs ───────────────────────────────────────
+
+async function loadSavedIds() {
+    if (!getToken()) return;
+    try {
+        const res = await fetch(`${API}/saved-products`, {
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            savedIds = new Set(data.map(s => s.productId));
+            applySavedState();
+        }
+    } catch (e) {
+        console.error('Could not load saved products', e);
+    }
+}
+
+// ── TOGGLE SAVE ──────────────────────────────────────────
+
+async function toggleSave(productId) {
+    if (!getToken()) {
+        window.location.href = '/pages/login.html';
+        return;
+    }
+
+    const currentlySaved = savedIds.has(productId);
+
+    try {
+        if (currentlySaved) {
+            const res = await fetch(`${API}/saved-products/${productId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + getToken() }
+            });
+            if (res.ok) {
+                savedIds.delete(productId);
+                document.querySelectorAll(`[data-product-id="${productId}"]`).forEach(btn => setHeartVisual(btn, false));
+                showToast('Removed from saved 🤍');
+            }
+        } else {
+            const res = await fetch(`${API}/saved-products`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getToken()
+                },
+                body: JSON.stringify(productId)
+            });
+            if (res.ok) {
+                savedIds.add(productId);
+                document.querySelectorAll(`[data-product-id="${productId}"]`).forEach(btn => setHeartVisual(btn, true));
+                showToast('Product saved! ❤️');
+            }
+        }
+    } catch (e) {
+        console.error('Save toggle error:', e);
+    }
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+
+function showToast(message) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = `
+            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+            background: #0a0a0a; color: #fff; padding: 10px 24px;
+            border-radius: 12px; font-size: 14px; z-index: 999;
+            transition: opacity 0.3s; opacity: 0;
+            pointer-events: none;
+        `;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
 // ── MODAL ────────────────────────────────────────────────
 
 function openModal(p) {
     const bg = CAT_COLORS[p.categoryName] || '#f5f5f3';
     const modalHero = document.getElementById('m-img');
     modalHero.style.background = bg;
-    // clear children except close button then set emoji
     const closeBtn = modalHero.querySelector('.modal-close');
     modalHero.innerHTML = '';
     modalHero.appendChild(closeBtn);
@@ -132,10 +231,11 @@ function openModal(p) {
         else window.location.href = '/pages/checkout.html?slug=' + p.slug;
     };
 
-    document.getElementById('m-save').onclick = () => {
-        if (!getToken()) window.location.href = '/pages/login.html';
-        else saveProduct(p.id);
-    };
+    // ✅ FIX: Wire up the modal save button
+    const saveBtn = document.getElementById('m-save');
+    saveBtn.dataset.productId = p.id;
+    saveBtn.onclick = () => toggleSave(p.id);
+    setHeartVisual(saveBtn, savedIds.has(p.id));
 
     document.getElementById('modal').classList.add('open');
 }
@@ -143,33 +243,6 @@ function openModal(p) {
 function closeModal(e) {
     if (e.target.id === 'modal') {
         document.getElementById('modal').classList.remove('open');
-    }
-}
-
-function closeModal(e) {
-    if (e.target.id === 'modal') {
-        document.getElementById('modal').classList.remove('open');
-    }
-}
-
-async function saveProduct(productId) {
-    try {
-        const res = await fetch(`${API}/saved-products`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + getToken()
-            },
-            body: JSON.stringify({ productId })
-        });
-        if (res.ok) {
-            // Visual feedback on save button
-            const btn = document.getElementById('m-save');
-            btn.style.borderColor = '#D4537E';
-            btn.style.color = '#D4537E';
-        }
-    } catch (e) {
-        console.error('Save failed', e);
     }
 }
 
@@ -201,7 +274,6 @@ async function loadDeals() {
         const res = await fetch(`${API}/products?sortBy=ending-soon&pageSize=8`);
         const data = await res.json();
 
-        // Update stat
         document.getElementById('s-deals').textContent =
             data.totalCount.toLocaleString() + '+';
 
@@ -218,7 +290,7 @@ async function loadDeals() {
              </div>`
                 : ''}
       </div>
-      <button class="deal-save-btn" onclick="event.stopPropagation();handleSave(${p.id})">
+      <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
         <i class="ti ti-heart" aria-hidden="true"></i>
       </button>
     </div>
@@ -243,17 +315,12 @@ async function loadDeals() {
     </div>
   </div>`).join('');
 
+        // ✅ Apply saved state after rendering
+        applySavedState();
+
     } catch (e) {
         document.getElementById('deals-grid').innerHTML =
             '<p style="font-size:13px;color:#666;padding:1rem">Could not load deals. Make sure the API is running on ' + API + '</p>';
-    }
-}
-
-function handleSave(productId) {
-    if (!getToken()) {
-        window.location.href = '/pages/login.html';
-    } else {
-        saveProduct(productId);
     }
 }
 
@@ -263,3 +330,4 @@ renderSteps('buyer');
 checkAuth();
 loadCategories();
 loadDeals();
+loadSavedIds(); // ✅ Load saved state
