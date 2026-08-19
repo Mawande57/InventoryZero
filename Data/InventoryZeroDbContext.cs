@@ -224,8 +224,6 @@ public partial class InventoryZeroDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__Orders__BuyerId__5629CD9C");
 
-            
-
             entity.HasOne(d => d.Shop).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.ShopId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -334,8 +332,10 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.UpdatedAt).HasColumnType("datetime");
             entity.Property(e => e.Weight).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.Width).HasColumnType("decimal(10, 2)");
+
             modelBuilder.Entity<Product>()
               .Ignore(p => p.RemainingQuantity);
+
             entity.HasOne(d => d.Category).WithMany(p => p.Products)
                 .HasForeignKey(d => d.CategoryId)
                 .HasConstraintName("FK__Products__Catego__412EB0B6");
@@ -538,21 +538,37 @@ public partial class InventoryZeroDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__UserAddre__UserI__09A971A2");
         });
-        var adminId = 45;
+
+        // ─── SEED ADMIN USER ──────────────────────────────────────
         var passwordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123");
 
         modelBuilder.Entity<User>().HasData(
             new User
             {
-                Id = adminId,
+                Id = 1,
                 Email = "admin@inventoryzero.com",
                 FullName = "System Administrator",
                 PasswordHash = passwordHash,
                 Role = "Admin",
                 IsActive = true,
                 IsEmailVerified = true,
+                IsPhoneVerified = false,
+                Rating = 0,
+                TotalReviews = 0,
                 CreatedAt = DateTime.Now
             }
+        );
+
+        // ─── SEED CATEGORIES ──────────────────────────────────────
+        modelBuilder.Entity<Category>().HasData(
+            new Category { Id = 1, Name = "Clothing", Slug = "clothing", IconUrl = "🧥", Description = "Fashion, apparel, and accessories", SortOrder = 1, IsActive = true, CreatedAt = DateTime.Now },
+            new Category { Id = 2, Name = "Electronics", Slug = "electronics", IconUrl = "📱", Description = "Phones, laptops, gadgets", SortOrder = 2, IsActive = true, CreatedAt = DateTime.Now },
+            new Category { Id = 3, Name = "Food & Drinks", Slug = "food-drinks", IconUrl = "🥤", Description = "Food items and beverages", SortOrder = 3, IsActive = true, CreatedAt = DateTime.Now },
+            new Category { Id = 4, Name = "Furniture", Slug = "furniture", IconUrl = "🛋️", Description = "Home and office furniture", SortOrder = 4, IsActive = true, CreatedAt = DateTime.Now },
+            new Category { Id = 5, Name = "Hardware", Slug = "hardware", IconUrl = "🔧", Description = "Tools and building materials", SortOrder = 5, IsActive = true, CreatedAt = DateTime.Now },
+            new Category { Id = 6, Name = "Sport & Fitness", Slug = "sport-fitness", IconUrl = "🏋️", Description = "Sports equipment and fitness gear", SortOrder = 6, IsActive = true, CreatedAt = DateTime.Now },
+            new Category { Id = 7, Name = "Beauty & Health", Slug = "beauty-health", IconUrl = "💄", Description = "Cosmetics and health products", SortOrder = 7, IsActive = true, CreatedAt = DateTime.Now },
+            new Category { Id = 8, Name = "Other", Slug = "other", IconUrl = "📦", Description = "Everything else", SortOrder = 8, IsActive = true, CreatedAt = DateTime.Now }
         );
 
         OnModelCreatingPartial(modelBuilder);

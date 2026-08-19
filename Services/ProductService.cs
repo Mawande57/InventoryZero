@@ -28,7 +28,8 @@ namespace InventoryZeroAPI.Services
                 .Where(p =>
                     p.Status == "Active" &&
                     p.AdminApproved &&
-                    p.ListingEndDate > DateTime.Now);
+                    p.ListingEndDate > DateTime.Now &&
+                    p.Shop.IsVerified == true);
 
             // Apply filters one by one if they were provided
             // Each Where() adds to the query — still no DB hit yet
@@ -132,7 +133,8 @@ namespace InventoryZeroAPI.Services
                 .FirstOrDefaultAsync(p =>
                     p.Slug == slug &&
                     p.Status == "Active" &&
-                    p.AdminApproved);
+                    p.AdminApproved &&
+                    p.Shop.IsVerified == true);
 
             if (product == null) return null;
 
@@ -195,7 +197,8 @@ namespace InventoryZeroAPI.Services
                     p.Category.Slug == categorySlug &&
                     p.Status == "Active" &&
                     p.AdminApproved &&
-                    p.ListingEndDate > DateTime.Now)
+                    p.ListingEndDate > DateTime.Now &&
+                    p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -233,7 +236,8 @@ namespace InventoryZeroAPI.Services
                     p.ShopId == shopId &&
                     p.Status == "Active" &&
                     p.AdminApproved &&
-                    p.ListingEndDate > DateTime.Now)
+                    p.ListingEndDate > DateTime.Now &&
+                    p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 

@@ -24,7 +24,8 @@ namespace InventoryZeroAPI.Services
                 .Include(s => s.User)
                 .FirstOrDefaultAsync(s =>
                     s.Id == id &&
-                    s.Status == "Active");
+                    s.Status == "Active" &&
+                    s.IsVerified == true);
 
             if (shop == null) return null;
 
@@ -59,7 +60,8 @@ namespace InventoryZeroAPI.Services
                     p.ShopId == shopId &&
                     p.Status == "Active" &&
                     p.AdminApproved &&
-                    p.ListingEndDate > DateTime.Now)
+                    p.ListingEndDate > DateTime.Now &&
+                    p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
