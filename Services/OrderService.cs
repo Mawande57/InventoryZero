@@ -28,6 +28,8 @@ namespace InventoryZeroAPI.Services
             if (product == null)
                 throw new Exception("Product not found or no longer available.");
 
+            if (product.Shop.UserId == buyerId)
+                throw new Exception("You cannot purchase your own products.");
             // 2. Check stock
             var remaining = product.Quantity - product.SoldQuantity;
             if (dto.Quantity > remaining)

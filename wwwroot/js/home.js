@@ -30,7 +30,6 @@ const STEPS = {
 };
 
 // ── HELPERS ──────────────────────────────────────────────
-
 function daysLeft(dateStr) {
     const diff = new Date(dateStr) - new Date();
     const d = Math.ceil(diff / 86400000);
@@ -53,11 +52,15 @@ function getToken() {
     return localStorage.getItem('token');
 }
 
+function isAdmin() {
+    const user = getUser();
+    return user && user.role === 'Admin';
+}
+
 // ── SAVED STATE ──────────────────────────────────────────
 let savedIds = new Set();
 
-// ── NAV — show user info if logged in ────────────────────
-
+// ── NAV AUTH CHECK ───────────────────────────────────────
 function checkAuth() {
     const user = getUser();
     const navRight = document.getElementById('nav-right');
@@ -68,28 +71,72 @@ function checkAuth() {
 
     if (isAdmin) {
         dashboardLinks = `<button class="btn-solid" onclick="window.location.href='/pages/admin-dashboard.html'">Dashboard</button>`;
+        setTimeout(() => {
+            showAdminBanner();
+            hideBuyButtonsForAdmin();
+        }, 100);
     } else {
         dashboardLinks += `<button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">Buyer dashboard</button>`;
-        dashboardLinks += user.hasShop
-            ? `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`
-            : `<button class="btn-solid" onclick="window.location.href='/pages/register.html?role=Seller'">Become a seller</button>`;
+        if (user.hasShop) {
+            dashboardLinks += `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`;
+        } else {
+            dashboardLinks += `<button class="btn-solid" onclick="window.location.href='/pages/create-shop.html'">Become a seller</button>`;
+
+        }
     }
 
     navRight.innerHTML = `
-      <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
-      ${dashboardLinks}`;
+        <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
+        ${dashboardLinks}`;
+}
+
+// ── ADMIN RESTRICTIONS ──────────────────────────────────
+function showAdminBanner() {
+    if (!isAdmin()) return;
+
+    const existing = document.querySelector('.admin-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.className = 'admin-banner';
+    banner.style.cssText = `
+        background: #1D9E75;
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-align: center;
+        margin: 10px auto;
+        max-width: 1140px;
+        font-size: 14px;
+    `;
+    banner.innerHTML = `
+        <i class="ti ti-shield-check" style="margin-right:8px;"></i> 
+        You are viewing as <strong>Admin</strong>. You cannot make purchases.
+    `;
+
+    const nav = document.querySelector('.iz-nav');
+    if (nav && nav.parentNode) {
+        nav.parentNode.insertBefore(banner, nav.nextSibling);
+    }
+}
+
+function hideBuyButtonsForAdmin() {
+    if (!isAdmin()) return;
+
+    document.querySelectorAll('.btn-hero-p, .btn-hero-s').forEach(btn => {
+        btn.style.display = 'none';
+    });
 }
 
 // ── HOW IT WORKS TABS ────────────────────────────────────
-
 function renderSteps(tab) {
     document.getElementById('how-steps').innerHTML = STEPS[tab]
         .map(s => `
-      <div class="how-step">
-        <div class="how-num">${s.n}</div>
-        <h3>${s.h}</h3>
-        <p>${s.p}</p>
-      </div>`).join('');
+            <div class="how-step">
+                <div class="how-num">${s.n}</div>
+                <h3>${s.h}</h3>
+                <p>${s.p}</p>
+            </div>`).join('');
 }
 
 function switchTab(tab, el) {
@@ -100,7 +147,6 @@ function switchTab(tab, el) {
 }
 
 // ── HEART VISUAL HELPERS ─────────────────────────────────
-
 function setHeartVisual(btn, saved) {
     const icon = btn.querySelector('i');
     if (!icon) return;
@@ -117,7 +163,6 @@ function applySavedState() {
 }
 
 // ── LOAD SAVED IDs ───────────────────────────────────────
-
 async function loadSavedIds() {
     if (!getToken()) return;
     try {
@@ -135,7 +180,6 @@ async function loadSavedIds() {
 }
 
 // ── TOGGLE SAVE ──────────────────────────────────────────
-
 async function toggleSave(productId) {
     if (!getToken()) {
         window.location.href = '/pages/login.html';
@@ -176,7 +220,6 @@ async function toggleSave(productId) {
 }
 
 // ── TOAST ─────────────────────────────────────────────────
-
 function showToast(message) {
     let toast = document.getElementById('toast');
     if (!toast) {
@@ -196,9 +239,129 @@ function showToast(message) {
     setTimeout(() => { toast.style.opacity = '0'; }, 2500);
 }
 
-// ── MODAL ────────────────────────────────────────────────
+// ── LOAD STATS ───────────────────────────────────────────
+async function loadStats() {
+    try {
+        const productsRes = await fetch(`${API}/products?pageSize=1`);
+        const productsData = await productsRes.json();
+        document.getElementById('s-deals').textContent = productsData.totalCount || 0;
 
+        const shopsRes = await fetch(`${API}/shops`);
+        const shops = await shopsRes.json();
+        const verifiedShops = shops.filter(s => s.isVerified).length;
+        document.getElementById('s-shops').textContent = verifiedShops || 0;
+
+        // You can add more stats here
+    } catch (e) {
+        console.log('Could not load stats:', e);
+    }
+}
+
+// ── LOAD CATEGORIES ──────────────────────────────────────
+async function loadCategories() {
+    try {
+        const res = await fetch(`${API}/categories`);
+        const data = await res.json();
+
+        document.getElementById('cats-grid').innerHTML = data.map(c => `
+            <div class="cat" onclick="window.location.href='/pages/browse.html?category=${c.slug}'">
+                <div class="cat-icon" style="background:${CAT_COLORS[c.name] || '#F1EFE8'}">
+                    ${EMOJIS[c.name] || '📦'}
+                </div>
+                <span>${c.name}</span>
+            </div>`).join('');
+
+    } catch (e) {
+        document.getElementById('cats-grid').innerHTML =
+            '<p style="font-size:13px;color:#666;grid-column:1/-1">Could not load categories.</p>';
+    }
+}
+
+// ── LOAD DEALS ───────────────────────────────────────────
+async function loadDeals() {
+    try {
+        const res = await fetch(`${API}/products?sortBy=ending-soon&pageSize=8`);
+        const data = await res.json();
+
+        document.getElementById('s-deals').textContent = data.totalCount.toLocaleString() + '+';
+
+        // ✅ Get user for ownership check
+        const user = getUser();
+        const isAdminUser = isAdmin();
+
+        document.getElementById('deals-grid').innerHTML = data.items.map(p => {
+            const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
+            const hideHeart = isOwnProduct || isAdminUser;
+
+            return `
+                <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
+                    <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
+                        ${EMOJIS[p.categoryName] || '📦'}
+                        <div class="deal-badges">
+                            <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
+                            ${p.isUrgent ? `<div class="badge-urgent">
+                                <i class="ti ti-clock" aria-hidden="true"></i>
+                                ${daysLeft(p.listingEndDate)}
+                            </div>` : ''}
+                            ${isOwnProduct ? `<div class="badge-own">📦 Your item</div>` : ''}
+                        </div>
+                        ${!hideHeart ? `
+                            <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
+                                <i class="ti ti-heart" aria-hidden="true"></i>
+                            </button>
+                        ` : `
+                            <span class="deal-save-disabled" style="position:absolute;top:8px;right:8px;font-size:11px;color:#6b7280;background:rgba(255,255,255,0.9);padding:2px 8px;border-radius:999px;">
+                                ${isAdminUser ? '🔒' : '📦'}
+                            </span>
+                        `}
+                    </div>
+                    <div class="deal-body">
+                        <div class="deal-cat">${p.categoryName || 'General'}</div>
+                        <div class="deal-title">${p.title}</div>
+                        <div class="deal-shop">
+                            <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
+                            ${p.shopName}${p.shopCity ? ', ' + p.shopCity : ''}
+                        </div>
+                        <div class="deal-pricing">
+                            <span class="deal-price">${fmt(p.salePrice)}</span>
+                            <span class="deal-orig">${fmt(p.originalPrice)}</span>
+                        </div>
+                        <div class="deal-foot">
+                            <span class="deal-stock">
+                                <span class="stock-dot"></span>
+                                ${p.remainingQuantity} left
+                            </span>
+                            <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)} left</span>
+                            ${isOwnProduct ? `<span style="font-size:10px;color:#B45309;background:#FEF3C7;padding:2px 8px;border-radius:999px;margin-left:4px;">Your item</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        applySavedState();
+
+    } catch (e) {
+        document.getElementById('deals-grid').innerHTML =
+            '<p style="font-size:13px;color:#666;padding:1rem">Could not load deals.</p>';
+    }
+}
+
+// ── MODAL ────────────────────────────────────────────────
 function openModal(p) {
+    console.log('=== OPEN MODAL DEBUG ===');
+    console.log('📦 Product object:', p);
+    console.log('🔑 Product ID:', p.id);
+    console.log('👤 Shop Owner ID from product:', p.shopOwnerId);
+
+    const user = getUser();
+    console.log('👤 Current user:', user);
+    console.log('👤 User ID:', user?.id);
+    console.log('👤 User hasShop:', user?.hasShop);
+
+    const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
+    console.log('✅ isOwnProduct result:', isOwnProduct);
+
     const bg = CAT_COLORS[p.categoryName] || '#f5f5f3';
     const modalHero = document.getElementById('m-img');
     modalHero.style.background = bg;
@@ -225,109 +388,108 @@ function openModal(p) {
     document.getElementById('m-desc').textContent = p.shortDescription || 'No description available.';
 
     const buyBtn = document.getElementById('m-buy');
-    buyBtn.textContent = 'Buy now — ' + fmt(p.salePrice);
-    buyBtn.onclick = () => {
-        if (!getToken()) window.location.href = '/pages/login.html';
-        else window.location.href = '/pages/checkout.html?slug=' + p.slug;
-    };
+    const parent = buyBtn.parentNode;
 
-    // ✅ FIX: Wire up the modal save button
+    // ✅ Remove any existing message before adding a new one
+    const existingMsg = parent.querySelector('.own-product-msg, .admin-msg');
+    if (existingMsg) {
+        existingMsg.remove();
+    }
+
+    // Reset buy button
+    buyBtn.style.display = 'block';
+    buyBtn.textContent = 'Buy now — ' + fmt(p.salePrice);
+
+    const isAdminUser = isAdmin();
+
+    if (isAdminUser) {
+        console.log('🔒 Admin user - hiding buy button');
+        buyBtn.style.display = 'none';
+        const msg = document.createElement('div');
+        msg.className = 'admin-msg';
+        msg.style.cssText = `
+            flex: 1;
+            padding: 13px;
+            background: #e8e8e8;
+            color: #6b7280;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 14px;
+        `;
+        msg.textContent = '🔒 Admin view only';
+        parent.insertBefore(msg, buyBtn);
+    } else if (isOwnProduct) {
+        console.log('🚫 User owns this product - hiding buy button');
+        buyBtn.style.display = 'none';
+        const msg = document.createElement('div');
+        msg.className = 'own-product-msg';
+        msg.style.cssText = `
+            flex: 1;
+            padding: 13px;
+            background: #FEF3C7;
+            color: #B45309;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+        `;
+        msg.textContent = '🚫 You cannot buy your own products';
+        parent.insertBefore(msg, buyBtn);
+    } else {
+        console.log('✅ User can buy this product - showing buy button');
+        buyBtn.onclick = () => {
+            if (!getToken()) window.location.href = '/pages/login.html';
+            else window.location.href = '/pages/checkout.html?slug=' + p.slug;
+        };
+    }
+
+    // ─── SAVE BUTTON - Hide for own products ───
     const saveBtn = document.getElementById('m-save');
-    saveBtn.dataset.productId = p.id;
-    saveBtn.onclick = () => toggleSave(p.id);
-    setHeartVisual(saveBtn, savedIds.has(p.id));
+
+    // ✅ Remove existing save button message if any
+    const parentActions = saveBtn.parentNode;
+    const existingSaveMsg = parentActions.querySelector('.own-product-save-msg');
+    if (existingSaveMsg) {
+        existingSaveMsg.remove();
+    }
+
+    if (isOwnProduct || isAdminUser) {
+        // Hide save button for own products or admin
+        saveBtn.style.display = 'none';
+
+        // Optional: Add a small note that saving isn't available
+        const note = document.createElement('span');
+        note.className = 'own-product-save-msg';
+        note.style.cssText = `
+            font-size: 11px;
+            color: #6b7280;
+            padding: 8px 12px;
+            background: #f8f8f6;
+            border-radius: 8px;
+            text-align: center;
+        `;
+        note.textContent = isAdminUser ? '🔒 Admin' : '📦 Your item';
+        parentActions.insertBefore(note, saveBtn);
+    } else {
+        saveBtn.style.display = 'flex';
+        saveBtn.dataset.productId = p.id;
+        saveBtn.onclick = () => toggleSave(p.id);
+        setHeartVisual(saveBtn, savedIds.has(p.id));
+    }
 
     document.getElementById('modal').classList.add('open');
+    console.log('=== END OPEN MODAL ===');
 }
-
 function closeModal(e) {
     if (e.target.id === 'modal') {
         document.getElementById('modal').classList.remove('open');
     }
 }
 
-// ── LOAD CATEGORIES ──────────────────────────────────────
-
-async function loadCategories() {
-    try {
-        const res = await fetch(`${API}/categories`);
-        const data = await res.json();
-
-        document.getElementById('cats-grid').innerHTML = data.map(c => `
-      <div class="cat" onclick="window.location.href='/pages/browse.html?category=${c.slug}'">
-        <div class="cat-icon" style="background:${CAT_COLORS[c.name] || '#F1EFE8'}">
-          ${EMOJIS[c.name] || '📦'}
-        </div>
-        <span>${c.name}</span>
-      </div>`).join('');
-
-    } catch (e) {
-        document.getElementById('cats-grid').innerHTML =
-            '<p style="font-size:13px;color:#666;grid-column:1/-1">Could not load categories.</p>';
-    }
-}
-
-// ── LOAD DEALS ───────────────────────────────────────────
-
-async function loadDeals() {
-    try {
-        const res = await fetch(`${API}/products?sortBy=ending-soon&pageSize=8`);
-        const data = await res.json();
-
-        document.getElementById('s-deals').textContent =
-            data.totalCount.toLocaleString() + '+';
-
-        document.getElementById('deals-grid').innerHTML = data.items.map(p => `
-  <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
-    <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
-      ${EMOJIS[p.categoryName] || '📦'}
-      <div class="deal-badges">
-        <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
-        ${p.isUrgent
-                ? `<div class="badge-urgent">
-               <i class="ti ti-clock" aria-hidden="true"></i>
-               ${daysLeft(p.listingEndDate)}
-             </div>`
-                : ''}
-      </div>
-      <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
-        <i class="ti ti-heart" aria-hidden="true"></i>
-      </button>
-    </div>
-    <div class="deal-body">
-      <div class="deal-cat">${p.categoryName || 'General'}</div>
-      <div class="deal-title">${p.title}</div>
-      <div class="deal-shop">
-        <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
-        ${p.shopName}${p.shopCity ? ', ' + p.shopCity : ''}
-      </div>
-      <div class="deal-pricing">
-        <span class="deal-price">${fmt(p.salePrice)}</span>
-        <span class="deal-orig">${fmt(p.originalPrice)}</span>
-      </div>
-      <div class="deal-foot">
-        <span class="deal-stock">
-          <span class="stock-dot"></span>
-          ${p.remainingQuantity} left
-        </span>
-        <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)} left</span>
-      </div>
-    </div>
-  </div>`).join('');
-
-        // ✅ Apply saved state after rendering
-        applySavedState();
-
-    } catch (e) {
-        document.getElementById('deals-grid').innerHTML =
-            '<p style="font-size:13px;color:#666;padding:1rem">Could not load deals. Make sure the API is running on ' + API + '</p>';
-    }
-}
-
 // ── INIT ─────────────────────────────────────────────────
-
 renderSteps('buyer');
 checkAuth();
 loadCategories();
 loadDeals();
-loadSavedIds(); // ✅ Load saved state
+loadSavedIds();
+loadStats();

@@ -1,5 +1,116 @@
 ﻿/* wwwroot/css/admin-dashboard.css */
+/* ── NAV STYLES ────────────────────────────────────────── */
 
+.iz-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,10,0.96);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 58px;
+    border-bottom: 0.5px solid rgba(255,255,255,0.08);
+}
+
+.iz-logo {
+    font-size: 17px;
+    font-weight: 600;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: -0.3px;
+}
+
+    .iz-logo i {
+        color: #1D9E75;
+        font-size: 20px;
+    }
+
+    .iz-logo span {
+        color: #1D9E75;
+    }
+
+.nav-links {
+    display: flex;
+    gap: 1.75rem;
+}
+
+    .nav-links a {
+        font-size: 13px;
+        color: rgba(255,255,255,0.6);
+        transition: color 0.15s;
+        text-decoration: none;
+    }
+
+        .nav-links a:hover {
+            color: #fff;
+        }
+
+.nav-right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.nav-user {
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+}
+
+.btn-logout {
+    padding: 7px 16px;
+    border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+    .btn-logout:hover {
+        background: rgba(255,255,255,0.1);
+        border-color: rgba(255,255,255,0.3);
+    }
+
+.btn-solid {
+    padding: 7px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #1D9E75;
+    font-size: 13px;
+    color: #fff;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+    .btn-solid:hover {
+        background: #0F6E56;
+    }
+
+.btn-ghost {
+    padding: 7px 16px;
+    border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+    .btn-ghost:hover {
+        background: rgba(255,255,255,0.1);
+    }
 /* ── SHARED ────────────────────────────────────────────── */
 .dash-hero {
     background: #0a0a0a;

@@ -129,6 +129,14 @@ namespace InventoryZeroAPI.Controllers
             return Ok(shops);
         }
 
+        // GET api/seller/shops/verified - ONLY verified shops (product creation)
+        [HttpGet("shops/verified")]
+        public async Task<IActionResult> GetVerifiedShops()
+        {
+            var shops = await _sellerService.GetVerifiedShopsAsync(GetUserId());
+            return Ok(shops);
+        }
+
         // POST api/seller/shops
         [HttpPost("shops")]
         public async Task<IActionResult> CreateShop([FromBody] CreateShopDto dto)

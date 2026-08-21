@@ -15,8 +15,6 @@
             <h1>Create account</h1>
             <p>Join thousands getting insane deals</p>
             <div class="role-toggle">
-                <button class="role-btn active" data-role="Buyer">🛒 Buyer</button>
-                <button class="role-btn" data-role="Seller">🏪 Seller</button>
             </div>
             <input type="hidden" id="role" value="Buyer" />
             <div class="err-msg" id="err-msg"></div>
@@ -38,6 +36,14 @@
             </div>
             <button class="btn-primary" id="register-btn">Create account</button>
             <p class="switch">Already have an account? <a href="/pages/login.html">Sign in</a></p>
+            <div style="text-align:center;margin-top:1rem;">
+                <p style="font-size:13px;color:#6b7280;">
+                    Already have an account? <a href="/pages/login.html">Sign in</a>
+                </p>
+                <p style="font-size:13px;color:#6b7280;margin-top:0.5rem;">
+                    Want to sell? <a href="/pages/register.html?role=Seller">Become a seller</a>
+                </p>
+            </div>
         </div>
     </div>
     <script src="/js/auth.js"></script>

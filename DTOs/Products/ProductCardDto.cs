@@ -22,7 +22,7 @@ namespace InventoryZeroAPI.DTOs.Products
         public string ShopName { get; set; } = null!;
         public string? ShopCity { get; set; }
         public string? ShopLogoUrl { get; set; }
-
+        public int ShopOwnerId { get; set; }
         // Category
         public string? CategoryName { get; set; }
     }

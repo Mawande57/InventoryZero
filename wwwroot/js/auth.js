@@ -25,10 +25,13 @@ function saveSession(data) {
 }
 
 function redirectByRole(role, hasShop) {
-    if (role === 'Admin') window.location.href = '/pages/admin-dashboard.html';
-    else if (hasShop) window.location.href = '/pages/seller-dashboard.html';
-    else window.location.href = '/pages/index.html'
-        alert("You were not identified as  a user please wait patiently your identity will be resolved soon...");
+    if (role === 'Admin') {
+        window.location.href = '/pages/admin-dashboard.html';
+    } else if (hasShop) {
+        window.location.href = '/pages/seller-dashboard.html';
+    } else {
+        window.location.href = '/pages/index.html';
+    }
 }
 
 // ── LOGIN PAGE ───────────────────────────────────────────
@@ -73,8 +76,38 @@ if (loginBtn) {
 }
 
 // ── REGISTER PAGE ────────────────────────────────────────
+// ── REGISTER PAGE ────────────────────────────────────────
 const registerBtn = document.getElementById('register-btn');
 if (registerBtn) {
+
+    // Get role from URL param
+    const urlParams = new URLSearchParams(window.location.search);
+    const roleParam = urlParams.get('role');
+
+    // Set default role
+    let selectedRole = 'Buyer';
+    if (roleParam === 'Seller') {
+        selectedRole = 'Buyer'; // Always store as Buyer
+        // Show a message that they'll create a shop after
+        const msg = document.createElement('div');
+        msg.style.cssText = `
+            background: #E1F5EE;
+            color: #0F6E56;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 14px;
+            text-align: center;
+        `;
+        msg.innerHTML = `
+            <i class="ti ti-building-store" style="margin-right:8px;"></i>
+            You'll create your shop right after registration!
+        `;
+        const form = document.querySelector('.auth-form');
+        if (form) {
+            form.insertBefore(msg, form.firstChild);
+        }
+    }
 
     // Role toggle buttons
     document.querySelectorAll('.role-btn').forEach(btn => {
@@ -92,22 +125,19 @@ if (registerBtn) {
         const email = document.getElementById('email').value.trim();
         const phone = document.getElementById('phone').value.trim();
         const password = document.getElementById('password').value;
-        const role = document.getElementById('role').value;
+        const role = document.getElementById('role').value; // Always "Buyer"
 
         if (!fullName || !email || !password) return showError('Please fill in all required fields.');
         if (password.length < 8) return showError('Password must be at least 8 characters.');
-        
-
 
         registerBtn.disabled = true;
         registerBtn.textContent = 'Creating account...';
 
         try {
-            // Call POST /api/auth/register
             const res = await fetch(`${API}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fullName, email, password, phoneNumber: phone, role })
+                body: JSON.stringify({ fullName, email, password, phoneNumber: phone, role: 'Buyer' })
             });
 
             const data = await res.json();
@@ -118,7 +148,13 @@ if (registerBtn) {
             }
 
             saveSession(data);
-            redirectByRole(data.role, data.hasShop);
+
+            // ✅ If they came from "Become a seller" link, redirect to create shop
+            if (roleParam === 'Seller') {
+                window.location.href = '/pages/create-shop.html';
+            } else {
+                redirectByRole(data.role, data.hasShop);
+            }
 
         } catch (err) {
             showError('Could not connect to server. Try again.');

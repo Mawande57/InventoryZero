@@ -18,9 +18,32 @@ namespace InventoryZeroAPI.Services
 
         public async Task<AdminStatsDto> GetStatsAsync()
         {
-            var users = await _context.Users.ToListAsync();
-            var shops = await _context.Shops.ToListAsync();
-            var products = await _context.Products.ToListAsync();
+            // ✅ Exclude Admin from users
+            var users = await _context.Users
+                .Where(u => u.Role != "Admin")
+                .ToListAsync();
+
+            // ✅ Sellers = Users who have at least one shop
+            var userIdsWithShops = await _context.Shops
+                .Where(s => s.Status == "Active" && s.IsVerified == true)
+                .Select(s => s.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            var sellers = users.Where(u => userIdsWithShops.Contains(u.Id)).ToList();
+
+            var shops = await _context.Shops
+                .Where(s => s.Status == "Active" && s.IsVerified == true)
+                .ToListAsync();
+
+            var pendingShops = await _context.Shops
+                .Where(s => s.Status == "Pending")
+                .ToListAsync();
+
+            var products = await _context.Products
+                .Where(p => p.Status == "Active")
+                .ToListAsync();
+
             var orders = await _context.Orders.ToListAsync();
             var payouts = await _context.Payouts.ToListAsync();
             var disputes = await _context.Disputes.ToListAsync();
@@ -28,9 +51,9 @@ namespace InventoryZeroAPI.Services
             return new AdminStatsDto
             {
                 TotalUsers = users.Count,
-                TotalSellers = users.Count(u => u.Role == "Seller" || u.Role == "Admin"),
+                TotalSellers = sellers.Count,  // ✅ Users with shops
                 TotalShops = shops.Count,
-                PendingShops = shops.Count(s => s.Status == "Pending"),
+                PendingShops = pendingShops.Count,
                 TotalProducts = products.Count,
                 TotalOrders = orders.Count,
                 TotalRevenue = orders.Sum(o => o.TotalAmount),
@@ -167,7 +190,10 @@ namespace InventoryZeroAPI.Services
 
         public async Task<PagedResultDto<AdminUserDto>> GetUsersAsync(string? role, int page, int pageSize)
         {
-            var query = _context.Users.AsQueryable();
+            // ✅ Exclude Admin
+            var query = _context.Users
+                .Where(u => u.Role != "Admin")
+                .AsQueryable();
 
             if (!string.IsNullOrEmpty(role))
                 query = query.Where(u => u.Role == role);
@@ -179,19 +205,27 @@ namespace InventoryZeroAPI.Services
                 .Take(pageSize)
                 .ToListAsync();
 
+            // ✅ Get shop counts in one query
+            var userIds = users.Select(u => u.Id).ToList();
+            var shopCounts = await _context.Shops
+                .Where(s => userIds.Contains(s.UserId))
+                .GroupBy(s => s.UserId)
+                .Select(g => new { UserId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.UserId, x => x.Count);
+
             var items = users.Select(u => new AdminUserDto
             {
                 Id = u.Id,
                 FullName = u.FullName,
                 Email = u.Email,
-                Role = u.Role,
+                Role = u.Role,  // "Buyer"
                 IsActive = u.IsActive,
                 IsEmailVerified = u.IsEmailVerified,
                 CreatedAt = u.CreatedAt,
                 LastLoginAt = u.LastLoginAt,
                 TotalOrders = _context.Orders.Count(o => o.BuyerId == u.Id),
                 TotalSpent = _context.Orders.Where(o => o.BuyerId == u.Id && o.PaymentStatus == "Paid").Sum(o => o.TotalAmount),
-                TotalShops = _context.Shops.Count(s => s.UserId == u.Id)
+                TotalShops = shopCounts.ContainsKey(u.Id) ? shopCounts[u.Id] : 0  // ✅ Already exists!
             }).ToList();
 
             return new PagedResultDto<AdminUserDto>

@@ -32,6 +32,8 @@ namespace InventoryZeroAPI.DTOs.Products
 
         // Full shop info
         public int ShopId { get; set; }
+        public int ShopOwnerId { get; set; }  // ✅ Add this
+
         public string ShopName { get; set; } = null!;
         public string? ShopCity { get; set; }
         public string? ShopLogoUrl { get; set; }

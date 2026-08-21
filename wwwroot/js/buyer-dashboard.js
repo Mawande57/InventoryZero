@@ -370,16 +370,29 @@ function renderDashboardSwitcher() {
     const container = document.getElementById('dashboard-switcher');
     if (!container) return;
 
+    // Check which page we're on
+    const isSellerPage = window.location.pathname.includes('seller-dashboard');
+    const isBuyerPage = window.location.pathname.includes('buyer-dashboard');
+
     if (user.hasShop) {
         container.innerHTML = `
-          <button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">🛒 Buyer view</button>
-          <button class="btn-ghost" onclick="window.location.href='/pages/seller-dashboard.html'">🏪 Seller view</button>`;
+            <button class="btn-ghost ${isBuyerPage ? 'active' : ''}" 
+                    onclick="window.location.href='/pages/buyer-dashboard.html'">
+                🛒 Buyer
+            </button>
+            <button class="btn-ghost ${isSellerPage ? 'active' : ''}" 
+                    onclick="window.location.href='/pages/seller-dashboard.html'">
+                🏪 Seller
+            </button>
+        `;
     } else {
         container.innerHTML = `
-          <button class="btn-ghost" onclick="window.location.href='/pages/register.html?role=Seller'">🏪 Become a seller</button>`;
+            <button class="btn-ghost" onclick="window.location.href='/pages/create-shop.html'">
+                🏪 Become a seller
+            </button>
+        `;
     }
 }
-
  // call alongside your existing init calls
 
 // ── INIT ─────────────────────────────────────────────────

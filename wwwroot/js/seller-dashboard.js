@@ -1,17 +1,43 @@
 ﻿const API = 'https://localhost:7237/api';
 
 // ── AUTH ──────────────────────────────────────────────────
-function getToken() { return localStorage.getItem('token'); }
+function getToken() {
+    const token = localStorage.getItem('token');
+    console.log('🔑 Token:', token ? 'exists' : 'null');
+    return token;
+}
+
 function getUser() {
     const u = localStorage.getItem('user');
+    console.log('👤 User from localStorage:', u);
     return u ? JSON.parse(u) : null;
 }
 
-// Redirect if not seller
+// 🔍 DEBUG: Log everything
+console.log('=== SELLER DASHBOARD LOADED ===');
 const user = getUser();
-if (!user || user.role !== 'Seller') {
+console.log('📦 User object:', user);
+console.log('📦 hasShop:', user?.hasShop);
+
+// ✅ Check if user exists
+if (!user) {
+    console.log('❌ No user found, redirecting to login');
     window.location.href = '/pages/login.html';
 }
+
+// If user has no shops, redirect to create shop page
+if (!user.hasShop) {
+    console.log('❌ User has no shops, redirecting to create-shop');
+    window.location.href = '/pages/create-shop.html';
+}
+
+// If user is Admin, redirect to admin dashboard
+if (user.role === 'Admin') {
+    console.log('❌ User is Admin, redirecting to admin dashboard');
+    window.location.href = '/pages/admin-dashboard.html';
+}
+
+console.log('✅ User is a seller, loading dashboard!');
 
 function authHeaders() {
     return {
@@ -19,7 +45,6 @@ function authHeaders() {
         'Authorization': 'Bearer ' + getToken()
     };
 }
-
 function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -204,10 +229,11 @@ async function loadSellerShops() {
     list.innerHTML = '<div class="shop-skeleton"></div>';
 
     try {
+        // ✅ Use /shops (ALL shops - for display)
         const res = await fetch(`${API}/seller/shops`, { headers: authHeaders() });
         const shops = await res.json();
 
-        if (shops.length === 0) {
+        if (!shops || shops.length === 0) {
             list.innerHTML = `
                 <div class="empty-state" style="text-align:center;padding:3rem 1rem">
                     <div style="font-size:40px;margin-bottom:0.5rem">🏪</div>
@@ -227,10 +253,10 @@ async function loadSellerShops() {
                 <div class="shop-card-info">
                     <div class="shop-card-name">${s.shopName}</div>
                     <div class="shop-card-meta">
-                        ${s.city || 'No location'} · ${s.totalProducts || 0} products
+                        ${s.city || 'No location'} · ${s.isVerified ? '✅ Verified' : '⏳ Pending approval'}
                     </div>
                 </div>
-                <span class="shop-card-status ${s.status.toLowerCase()}">${s.status}</span>
+                <span class="shop-card-status ${s.status?.toLowerCase() || 'pending'}">${s.status || 'Pending'}</span>
                 <button class="btn-small primary" onclick="window.location.href='/pages/shop-profile.html?id=${s.id}'">
                     View Shop
                 </button>
@@ -414,17 +440,39 @@ async function populateShopSelect(selectedId) {
     select.innerHTML = '<option value="">Select a shop</option>';
 
     try {
-        const res = await fetch(`${API}/seller/shops`, { headers: authHeaders() });
+        const res = await fetch(`${API}/seller/shops/verified`, { headers: authHeaders() });
         const shops = await res.json();
+
+        // ✅ Use a Set to prevent duplicates
+        const uniqueShops = new Map();
         shops.forEach(s => {
+            if (!uniqueShops.has(s.id)) {
+                uniqueShops.set(s.id, s);
+            }
+        });
+
+        if (uniqueShops.size === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '⚠️ No verified shops - please contact admin';
+            opt.disabled = true;
+            select.appendChild(opt);
+        }
+
+        uniqueShops.forEach((s) => {
             const opt = document.createElement('option');
             opt.value = s.id;
-            opt.textContent = s.shopName + (s.status !== 'Active' ? ' (' + s.status + ')' : '');
+            opt.textContent = s.shopName + ' ✅ Verified';
             if (s.id === selectedId) opt.selected = true;
             select.appendChild(opt);
         });
     } catch (e) {
         console.error('Shop select error:', e);
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '❌ Error loading shops';
+        opt.disabled = true;
+        select.appendChild(opt);
     }
 }
 
@@ -589,13 +637,27 @@ function renderDashboardSwitcher() {
     const container = document.getElementById('dashboard-switcher');
     if (!container) return;
 
+    // Check which page we're on
+    const isSellerPage = window.location.pathname.includes('seller-dashboard');
+    const isBuyerPage = window.location.pathname.includes('buyer-dashboard');
+
     if (user.hasShop) {
         container.innerHTML = `
-          <button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">🛒 Buyer view</button>
-          <button class="btn-ghost" onclick="window.location.href='/pages/seller-dashboard.html'">🏪 Seller view</button>`;
+            <button class="btn-ghost ${isBuyerPage ? 'active' : ''}" 
+                    onclick="window.location.href='/pages/buyer-dashboard.html'">
+                🛒 Buyer
+            </button>
+            <button class="btn-ghost ${isSellerPage ? 'active' : ''}" 
+                    onclick="window.location.href='/pages/seller-dashboard.html'">
+                🏪 Seller
+            </button>
+        `;
     } else {
         container.innerHTML = `
-          <button class="btn-ghost" onclick="window.location.href='/pages/register.html?role=Seller'">🏪 Become a seller</button>`;
+            <button class="btn-ghost" onclick="window.location.href='/pages/create-shop.html'">
+                🏪 Become a seller
+            </button>
+        `;
     }
 }
 

@@ -17,6 +17,7 @@ namespace InventoryZeroAPI.Services
         Task UpdateProductAsync(int productId, int userId, CreateProductDto dto);
         Task DeleteProductAsync(int productId, int userId);
         Task<List<ShopProfileDto>> GetShopsAsync(int userId);
+        Task<List<ShopProfileDto>> GetVerifiedShopsAsync(int userId);
         Task<object> CreateShopAsync(int userId, CreateShopDto dto);
         Task<List<PayoutDto>> GetPayoutsAsync(int userId);
     }

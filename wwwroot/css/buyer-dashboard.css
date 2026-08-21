@@ -820,3 +820,55 @@
         background: #9FE1CB;
         cursor: not-allowed;
     }
+
+    /* ── DASHBOARD SWITCHER ────────────────────────────────── */
+#dashboard-switcher {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+
+#dashboard-switcher .btn-ghost {
+    padding: 6px 14px;
+    border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+#dashboard-switcher .btn-ghost:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+#dashboard-switcher .btn-ghost.active {
+    background: rgba(29,158,117,0.2);
+    border-color: #1D9E75;
+    color: #1D9E75;
+}
+
+.btn-logout {
+    padding: 6px 14px;
+    border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.btn-logout:hover {
+    background: rgba(255,0,0,0.15);
+    border-color: rgba(255,0,0,0.3);
+    color: #ff6b6b;
+}

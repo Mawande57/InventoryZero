@@ -1,0 +1,278 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Your Shop — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/home.css" />
+    <style>
+        .create-shop-container {
+            max-width: 500px;
+            margin: 3rem auto;
+            padding: 2rem;
+            background: #fff;
+            border-radius: 16px;
+            border: 0.5px solid #e8e8e8;
+        }
+
+            .create-shop-container h1 {
+                font-size: 24px;
+                font-weight: 700;
+                color: #0a0a0a;
+                margin-bottom: 0.5rem;
+            }
+
+            .create-shop-container p {
+                font-size: 14px;
+                color: #6b7280;
+                margin-bottom: 1.5rem;
+            }
+
+        .field {
+            margin-bottom: 1rem;
+        }
+
+            .field label {
+                display: block;
+                font-size: 13px;
+                font-weight: 600;
+                color: #0a0a0a;
+                margin-bottom: 4px;
+            }
+
+            .field input, .field textarea, .field select {
+                width: 100%;
+                padding: 10px 12px;
+                border: 0.5px solid #e8e8e8;
+                border-radius: 10px;
+                font-size: 14px;
+                font-family: inherit;
+                color: #0a0a0a;
+                outline: none;
+            }
+
+                .field input:focus, .field textarea:focus, .field select:focus {
+                    border-color: #1D9E75;
+                }
+
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn-create {
+            width: 100%;
+            padding: 12px;
+            background: #1D9E75;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+            margin-top: 0.5rem;
+        }
+
+            .btn-create:hover {
+                background: #0F6E56;
+            }
+
+            .btn-create:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+        .err-msg {
+            color: #E24B4A;
+            font-size: 13px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+            .err-msg.show {
+                display: block;
+            }
+
+        .loading-shops {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/index.html">Home</a>
+            <a href="/pages/browse.html">Browse deals</a>
+        </div>
+        <div class="nav-right" id="nav-right">
+            <button class="btn-ghost" onclick="window.location.href='/pages/login.html'">Sign in</button>
+            <button class="btn-solid" onclick="window.location.href='/pages/register.html'">Get started</button>
+        </div>
+    </nav>
+
+    <div class="create-shop-container">
+        <h1>🏪 Create Your Shop</h1>
+        <p>Start selling by setting up your shop. You'll be able to list products right after!</p>
+
+        <div class="err-msg" id="err-msg"></div>
+
+        <div class="field">
+            <label>Shop Name *</label>
+            <input type="text" id="shop-name" placeholder="My Awesome Shop" />
+        </div>
+
+        <div class="field">
+            <label>Shop Description</label>
+            <textarea id="shop-desc" rows="3" placeholder="What do you sell?"></textarea>
+        </div>
+
+        <div class="field-row">
+            <div class="field">
+                <label>City</label>
+                <input type="text" id="shop-city" placeholder="Cape Town" />
+            </div>
+            <div class="field">
+                <label>Province</label>
+                <select id="shop-province">
+                    <option value="">Select</option>
+                    <option>Gauteng</option>
+                    <option>Western Cape</option>
+                    <option>KwaZulu-Natal</option>
+                    <option>Eastern Cape</option>
+                    <option>Limpopo</option>
+                    <option>Mpumalanga</option>
+                    <option>North West</option>
+                    <option>Free State</option>
+                    <option>Northern Cape</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="field">
+            <label>Phone Number</label>
+            <input type="tel" id="shop-phone" placeholder="081 234 5678" />
+        </div>
+
+        <button class="btn-create" id="create-shop-btn">Create Shop</button>
+    </div>
+
+    <footer class="iz-footer">
+        <p>© 2025 InventoryZero. Built for South Africa.</p>
+        <div class="footer-links">
+            <a href="#">About</a>
+            <a href="#">Terms</a>
+            <a href="#">Privacy</a>
+            <a href="#">Contact</a>
+        </div>
+    </footer>
+
+    <script>
+        const API = 'https://localhost:7237/api';
+
+        function getToken() {
+            return localStorage.getItem('token');
+        }
+
+        function getUser() {
+            const u = localStorage.getItem('user');
+            return u ? JSON.parse(u) : null;
+        }
+
+        // Check if logged in
+        const user = getUser();
+        if (!user) {
+            window.location.href = '/pages/login.html';
+        }
+
+        // Check if user already has shops
+        async function checkExistingShops() {
+            try {
+                const res = await fetch(`${API}/seller/shops`, {
+                    headers: { 'Authorization': 'Bearer ' + getToken() }
+                });
+                const shops = await res.json();
+                if (shops.length > 0) {
+                    // Already has shops - redirect to seller dashboard
+                    window.location.href = '/pages/seller-dashboard.html';
+                }
+            } catch (e) {
+                console.error('Check shops error:', e);
+            }
+        }
+        checkExistingShops();
+
+        // Create shop
+        const createBtn = document.getElementById('create-shop-btn');
+        const errEl = document.getElementById('err-msg');
+
+        createBtn.addEventListener('click', async () => {
+            errEl.classList.remove('show');
+
+            const shopName = document.getElementById('shop-name').value.trim();
+            const shopDescription = document.getElementById('shop-desc').value.trim();
+            const city = document.getElementById('shop-city').value.trim();
+            const province = document.getElementById('shop-province').value;
+            const phoneNumber = document.getElementById('shop-phone').value.trim();
+
+            if (!shopName) {
+                errEl.textContent = 'Shop name is required.';
+                errEl.classList.add('show');
+                return;
+            }
+
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating...';
+
+            try {
+                const res = await fetch(`${API}/seller/shops`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getToken()
+                    },
+                    body: JSON.stringify({
+                        shopName,
+                        shopDescription,
+                        city,
+                        province,
+                        phoneNumber
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    errEl.textContent = data.message || 'Failed to create shop.';
+                    errEl.classList.add('show');
+                    return;
+                }
+
+                // ✅ Update session - set hasShop = true
+                const user = getUser();
+                user.hasShop = true;
+                localStorage.setItem('user', JSON.stringify(user));
+
+                // ✅ Redirect to seller dashboard
+                window.location.href = '/pages/seller-dashboard.html';
+
+            } catch (e) {
+                errEl.textContent = 'Could not connect to server. Try again.';
+                errEl.classList.add('show');
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create Shop';
+            }
+        });
+    </script>
+</body>
+</html>

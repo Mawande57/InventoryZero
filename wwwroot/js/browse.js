@@ -28,7 +28,6 @@ let state = {
     sortBy: 'newest', page: 1, pageSize: 12
 };
 
-// Tracks which product IDs the current user has saved
 let savedIds = new Set();
 
 // ── HELPERS ──────────────────────────────────────────────
@@ -49,6 +48,49 @@ function getUser() {
     return u ? JSON.parse(u) : null;
 }
 
+function isAdmin() {
+    const user = getUser();
+    return user && user.role === 'Admin';
+}
+
+// ── ADMIN RESTRICTIONS ──────────────────────────────────
+function showAdminBanner() {
+    if (!isAdmin()) return;
+
+    const existing = document.querySelector('.admin-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.className = 'admin-banner';
+    banner.style.cssText = `
+        background: #1D9E75;
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-align: center;
+        margin: 10px auto;
+        max-width: 1140px;
+        font-size: 14px;
+    `;
+    banner.innerHTML = `
+        <i class="ti ti-shield-check" style="margin-right:8px;"></i> 
+        You are viewing as <strong>Admin</strong>. You cannot make purchases.
+    `;
+
+    const nav = document.querySelector('.iz-nav');
+    if (nav && nav.parentNode) {
+        nav.parentNode.insertBefore(banner, nav.nextSibling);
+    }
+}
+
+function hideBuyButtonsForAdmin() {
+    if (!isAdmin()) return;
+
+    document.querySelectorAll('.btn-search').forEach(btn => {
+        btn.style.display = 'none';
+    });
+}
+
 // ── NAV AUTH CHECK ───────────────────────────────────────
 function checkAuth() {
     const user = getUser();
@@ -60,18 +102,24 @@ function checkAuth() {
 
     if (isAdmin) {
         dashboardLinks = `<button class="btn-solid" onclick="window.location.href='/pages/admin-dashboard.html'">Dashboard</button>`;
+        setTimeout(() => {
+            showAdminBanner();
+            hideBuyButtonsForAdmin();
+        }, 100);
     } else {
         dashboardLinks += `<button class="btn-ghost" onclick="window.location.href='/pages/buyer-dashboard.html'">Buyer dashboard</button>`;
-        dashboardLinks += user.hasShop
-            ? `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`
-            : `<button class="btn-solid" onclick="window.location.href='/pages/register.html?role=Seller'">Become a seller</button>`;
+        if (user.hasShop) {
+            dashboardLinks += `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`;
+        } else {
+            dashboardLinks += `<button class="btn-solid" onclick="window.location.href='/pages/create-shop.html'">Become a seller</button>`;
+
+        }
     }
 
     navRight.innerHTML = `
-      <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
-      ${dashboardLinks}`;
+        <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
+        ${dashboardLinks}`;
 }
-
 
 // ── FILTER HELPERS ───────────────────────────────────────
 function selectCat(el) {
@@ -119,9 +167,9 @@ function updateActiveTags() {
     if (state.maxPrice) tags.push({ label: 'Max R' + state.maxPrice, key: 'maxPrice' });
 
     document.getElementById('active-filters').innerHTML = tags.map(t => `
-    <div class="filter-tag" onclick="removeTag('${t.key}')">
-      ${t.label} <i class="ti ti-x" aria-hidden="true"></i>
-    </div>`).join('');
+        <div class="filter-tag" onclick="removeTag('${t.key}')">
+            ${t.label} <i class="ti ti-x" aria-hidden="true"></i>
+        </div>`).join('');
 }
 
 function removeTag(key) {
@@ -145,7 +193,7 @@ function removeTag(key) {
     updateActiveTags();
 }
 
-// ── LOAD CATEGORIES INTO SIDEBAR ─────────────────────────
+// ── LOAD CATEGORIES ──────────────────────────────────────
 async function loadCategories() {
     try {
         const res = await fetch(`${API}/categories`);
@@ -157,12 +205,11 @@ async function loadCategories() {
             el.className = 'filter-cat';
             el.dataset.slug = c.slug;
 
-            // Auto select if URL param matches
             if (state.categorySlug === c.slug) el.classList.add('active');
 
             el.innerHTML = `
-        <div class="filter-cat-dot" style="background:${DOT_COLORS[c.name] || '#6b7280'}"></div>
-        <span>${c.name}</span>`;
+                <div class="filter-cat-dot" style="background:${DOT_COLORS[c.name] || '#6b7280'}"></div>
+                <span>${c.name}</span>`;
             el.onclick = () => selectCat(el);
             grid.appendChild(el);
         });
@@ -173,9 +220,7 @@ async function loadCategories() {
 
 // ── LOAD DEALS ───────────────────────────────────────────
 async function loadDeals() {
-    // Show skeletons while loading
-    document.getElementById('deals-grid').innerHTML =
-        '<div class="deal-skeleton"></div>'.repeat(6);
+    document.getElementById('deals-grid').innerHTML = '<div class="deal-skeleton"></div>'.repeat(6);
 
     const params = new URLSearchParams();
     if (state.search) params.set('search', state.search);
@@ -192,68 +237,82 @@ async function loadDeals() {
         const res = await fetch(`${API}/products?${params}`);
         const data = await res.json();
 
-        document.getElementById('result-count').textContent =
-            data.totalCount.toLocaleString() + ' deals';
-        document.getElementById('showing-count').textContent =
-            data.items.length + ' of ' + data.totalCount;
+        document.getElementById('result-count').textContent = data.totalCount.toLocaleString() + ' deals';
+        document.getElementById('showing-count').textContent = data.items.length + ' of ' + data.totalCount;
 
         if (data.items.length === 0) {
             document.getElementById('deals-grid').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🔍</div>
-          <h3>No deals found</h3>
-          <p>Try adjusting your filters or search term</p>
-        </div>`;
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No deals found</h3>
+                    <p>Try adjusting your filters or search term</p>
+                </div>`;
             document.getElementById('pagination').innerHTML = '';
             return;
         }
 
-        document.getElementById('deals-grid').innerHTML = data.items.map(p => `
-      <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
-        <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
-          ${EMOJIS[p.categoryName] || '📦'}
-          <div class="deal-badges">
-            <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
-            ${p.isUrgent
-                ? `<div class="badge-urgent">
-                   <i class="ti ti-clock" aria-hidden="true"></i>
-                   ${daysLeft(p.listingEndDate)}
-                 </div>`
-                : ''}
-          </div>
-          <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
-            <i class="ti ti-heart" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div class="deal-body">
-          <div class="deal-cat">${p.categoryName || 'General'}</div>
-          <div class="deal-title">${p.title}</div>
-          <div class="deal-shop">
-            <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
-            ${p.shopName}${p.shopCity ? ', ' + p.shopCity : ''}
-          </div>
-          <div class="deal-pricing">
-            <span class="deal-price">${fmt(p.salePrice)}</span>
-            <span class="deal-orig">${fmt(p.originalPrice)}</span>
-          </div>
-          <div class="deal-foot">
-            <span class="deal-stock">
-              <span class="stock-dot"></span>
-              ${p.remainingQuantity} left
-            </span>
-            <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)}</span>
-          </div>
-        </div>
-      </div>`).join('');
+        // ✅ Get user for ownership check
+        const user = getUser();
+        const isAdminUser = isAdmin();
+
+        document.getElementById('deals-grid').innerHTML = data.items.map(p => {
+            const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
+            const hideHeart = isOwnProduct || isAdminUser;
+
+            return `
+                <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
+                    <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
+                        ${EMOJIS[p.categoryName] || '📦'}
+                        <div class="deal-badges">
+                            <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
+                            ${p.isUrgent ? `<div class="badge-urgent">
+                                <i class="ti ti-clock" aria-hidden="true"></i>
+                                ${daysLeft(p.listingEndDate)}
+                            </div>` : ''}
+                            ${isOwnProduct ? `<div class="badge-own">📦 Your item</div>` : ''}
+                        </div>
+                        ${!hideHeart ? `
+                            <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
+                                <i class="ti ti-heart" aria-hidden="true"></i>
+                            </button>
+                        ` : `
+                            <span class="deal-save-disabled" style="position:absolute;top:8px;right:8px;font-size:11px;color:#6b7280;background:rgba(255,255,255,0.9);padding:2px 8px;border-radius:999px;">
+                                ${isAdminUser ? '🔒' : '📦'}
+                            </span>
+                        `}
+                    </div>
+                    <div class="deal-body">
+                        <div class="deal-cat">${p.categoryName || 'General'}</div>
+                        <div class="deal-title">${p.title}</div>
+                        <div class="deal-shop">
+                            <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
+                            ${p.shopName}${p.shopCity ? ', ' + p.shopCity : ''}
+                        </div>
+                        <div class="deal-pricing">
+                            <span class="deal-price">${fmt(p.salePrice)}</span>
+                            <span class="deal-orig">${fmt(p.originalPrice)}</span>
+                        </div>
+                        <div class="deal-foot">
+                            <span class="deal-stock">
+                                <span class="stock-dot"></span>
+                                ${p.remainingQuantity} left
+                            </span>
+                            <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)}</span>
+                            ${isOwnProduct ? `<span style="font-size:10px;color:#B45309;background:#FEF3C7;padding:2px 8px;border-radius:999px;margin-left:4px;">Your item</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
         renderPagination(data);
-        applySavedState(); // re-apply heart state to freshly rendered cards
+        applySavedState();
 
     } catch (e) {
         document.getElementById('deals-grid').innerHTML = `
-      <p style="font-size:13px;color:#666;padding:1rem;grid-column:1/-1">
-        Could not load deals. Make sure the API is running.
-      </p>`;
+            <p style="font-size:13px;color:#666;padding:1rem;grid-column:1/-1">
+                Could not load deals. Make sure the API is running.
+            </p>`;
     }
 }
 
@@ -265,9 +324,9 @@ function renderPagination(data) {
     }
 
     let html = `
-    <button class="page-btn" onclick="goPage(${data.page - 1})" ${data.page === 1 ? 'disabled' : ''}>
-      <i class="ti ti-arrow-left" aria-hidden="true"></i>
-    </button>`;
+        <button class="page-btn" onclick="goPage(${data.page - 1})" ${data.page === 1 ? 'disabled' : ''}>
+            <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        </button>`;
 
     for (let i = 1; i <= data.totalPages; i++) {
         if (i === 1 || i === data.totalPages || Math.abs(i - data.page) <= 1) {
@@ -278,9 +337,9 @@ function renderPagination(data) {
     }
 
     html += `
-    <button class="page-btn" onclick="goPage(${data.page + 1})" ${data.page === data.totalPages ? 'disabled' : ''}>
-      <i class="ti ti-arrow-right" aria-hidden="true"></i>
-    </button>`;
+        <button class="page-btn" onclick="goPage(${data.page + 1})" ${data.page === data.totalPages ? 'disabled' : ''}>
+            <i class="ti ti-arrow-right" aria-hidden="true"></i>
+        </button>`;
 
     document.getElementById('pagination').innerHTML = html;
 }
@@ -293,8 +352,22 @@ function goPage(p) {
 
 // ── MODAL ────────────────────────────────────────────────
 function openModal(p) {
+    console.log('=== OPEN MODAL DEBUG ===');
+    console.log('📦 Product object:', p);
+    console.log('🔑 Product ID:', p.id);
+    console.log('👤 Shop Owner ID from product:', p.shopOwnerId);
+
+    const user = getUser();
+    console.log('👤 Current user:', user);
+    console.log('👤 User ID:', user?.id);
+    console.log('👤 User hasShop:', user?.hasShop);
+
+    const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
+    console.log('✅ isOwnProduct result:', isOwnProduct);
+
+    const bg = CAT_COLORS[p.categoryName] || '#f5f5f3';
     const modalHero = document.getElementById('m-img');
-    modalHero.style.background = CAT_COLORS[p.categoryName] || '#f5f5f3';
+    modalHero.style.background = bg;
     const closeBtn = modalHero.querySelector('.modal-close');
     modalHero.innerHTML = '';
     modalHero.appendChild(closeBtn);
@@ -314,45 +387,108 @@ function openModal(p) {
     document.getElementById('m-shop-row').onclick = () => {
         window.location.href = '/pages/shop-profile.html?id=' + p.shopId;
     };
-    document.getElementById('m-verified').innerHTML =
-        '<i class="ti ti-shield-check" aria-hidden="true"></i> Verified';
-    document.getElementById('m-desc').textContent =
-        p.shortDescription || 'No description available.';
+    document.getElementById('m-verified').innerHTML = '<i class="ti ti-shield-check" aria-hidden="true"></i> Verified';
+    document.getElementById('m-desc').textContent = p.shortDescription || 'No description available.';
 
     const buyBtn = document.getElementById('m-buy');
-    buyBtn.textContent = 'Buy now — ' + fmt(p.salePrice);
-    buyBtn.onclick = () => {
-        if (!getToken()) window.location.href = '/pages/login.html';
-        else window.location.href = '/pages/checkout.html?slug=' + p.slug;
-    };
+    const parent = buyBtn.parentNode;
 
-    // Wire the modal's heart button to the same product, and reflect current saved state
+    // ✅ Remove any existing message before adding a new one
+    const existingMsg = parent.querySelector('.own-product-msg, .admin-msg');
+    if (existingMsg) {
+        existingMsg.remove();
+    }
+
+    // Reset buy button
+    buyBtn.style.display = 'block';
+    buyBtn.textContent = 'Buy now — ' + fmt(p.salePrice);
+
+    const isAdminUser = isAdmin();
+
+    if (isAdminUser) {
+        console.log('🔒 Admin user - hiding buy button');
+        buyBtn.style.display = 'none';
+        const msg = document.createElement('div');
+        msg.className = 'admin-msg';
+        msg.style.cssText = `
+            flex: 1;
+            padding: 13px;
+            background: #e8e8e8;
+            color: #6b7280;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 14px;
+        `;
+        msg.textContent = '🔒 Admin view only';
+        parent.insertBefore(msg, buyBtn);
+    } else if (isOwnProduct) {
+        console.log('🚫 User owns this product - hiding buy button');
+        buyBtn.style.display = 'none';
+        const msg = document.createElement('div');
+        msg.className = 'own-product-msg';
+        msg.style.cssText = `
+            flex: 1;
+            padding: 13px;
+            background: #FEF3C7;
+            color: #B45309;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+        `;
+        msg.textContent = '🚫 You cannot buy your own products';
+        parent.insertBefore(msg, buyBtn);
+    } else {
+        console.log('✅ User can buy this product - showing buy button');
+        buyBtn.onclick = () => {
+            if (!getToken()) window.location.href = '/pages/login.html';
+            else window.location.href = '/pages/checkout.html?slug=' + p.slug;
+        };
+    }
+
+    // ─── SAVE BUTTON - Hide for own products ───
     const saveBtn = document.getElementById('m-save');
-    saveBtn.dataset.productId = p.id;
-    saveBtn.onclick = () => toggleSave(p.id);
-    setHeartVisual(saveBtn, savedIds.has(p.id));
+
+    // ✅ Remove existing save button message if any
+    const parentActions = saveBtn.parentNode;
+    const existingSaveMsg = parentActions.querySelector('.own-product-save-msg');
+    if (existingSaveMsg) {
+        existingSaveMsg.remove();
+    }
+
+    if (isOwnProduct || isAdminUser) {
+        // Hide save button for own products or admin
+        saveBtn.style.display = 'none';
+
+        // Optional: Add a small note that saving isn't available
+        const note = document.createElement('span');
+        note.className = 'own-product-save-msg';
+        note.style.cssText = `
+            font-size: 11px;
+            color: #6b7280;
+            padding: 8px 12px;
+            background: #f8f8f6;
+            border-radius: 8px;
+            text-align: center;
+        `;
+        note.textContent = isAdminUser ? '🔒 Admin' : '📦 Your item';
+        parentActions.insertBefore(note, saveBtn);
+    } else {
+        saveBtn.style.display = 'flex';
+        saveBtn.dataset.productId = p.id;
+        saveBtn.onclick = () => toggleSave(p.id);
+        setHeartVisual(saveBtn, savedIds.has(p.id));
+    }
 
     document.getElementById('modal').classList.add('open');
+    console.log('=== END OPEN MODAL ===');
 }
 
 function closeModal() {
     document.getElementById('modal').classList.remove('open');
 }
 
-// ── INIT ─────────────────────────────────────────────────
-
-// Read URL params on load
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('category')) state.categorySlug = urlParams.get('category');
-if (urlParams.get('sort')) state.sortBy = urlParams.get('sort');
-if (urlParams.get('search')) {
-    state.search = urlParams.get('search');
-    document.getElementById('search-input').value = state.search;
-}
-
-// ── SAVE/UNSAVE PRODUCT (unified) ───────────────────────
-
-// Sets the heart icon's visual state on a single button element
+// ── HEART VISUAL HELPERS ─────────────────────────────────
 function setHeartVisual(btn, saved) {
     const icon = btn.querySelector('i');
     if (!icon) return;
@@ -361,7 +497,6 @@ function setHeartVisual(btn, saved) {
     icon.style.color = saved ? '#E24B4A' : '#6b7280';
 }
 
-// Re-applies savedIds to every save button currently in the DOM
 function applySavedState() {
     document.querySelectorAll('[data-product-id]').forEach(btn => {
         const id = Number(btn.dataset.productId);
@@ -369,7 +504,7 @@ function applySavedState() {
     });
 }
 
-// Loads the user's saved product IDs once, so hearts are correct on page load/refresh
+// ── LOAD SAVED IDs ───────────────────────────────────────
 async function loadSavedIds() {
     if (!getToken()) return;
     try {
@@ -386,7 +521,7 @@ async function loadSavedIds() {
     }
 }
 
-// Single entry point for both card hearts and the modal heart
+// ── TOGGLE SAVE ──────────────────────────────────────────
 async function toggleSave(productId) {
     if (!getToken()) {
         window.location.href = '/pages/login.html';
@@ -413,7 +548,7 @@ async function toggleSave(productId) {
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + getToken()
                 },
-                body: JSON.stringify(productId) // bare int — matches [FromBody] int productId
+                body: JSON.stringify(productId)
             });
             if (res.ok) {
                 savedIds.add(productId);
@@ -426,7 +561,7 @@ async function toggleSave(productId) {
     }
 }
 
-// ── TOAST NOTIFICATION ───────────────────────────────────
+// ── TOAST ─────────────────────────────────────────────────
 function showToast(message) {
     let toast = document.getElementById('toast');
     if (!toast) {
@@ -446,7 +581,28 @@ function showToast(message) {
     setTimeout(() => { toast.style.opacity = '0'; }, 2500);
 }
 
+// ── LOAD STATS ───────────────────────────────────────────
+async function loadStats() {
+    try {
+        const res = await fetch(`${API}/products?pageSize=1`);
+        const data = await res.json();
+        document.getElementById('result-count').textContent = data.totalCount + ' deals';
+    } catch (e) {
+        console.log('Could not load stats:', e);
+    }
+}
+
+// ── INIT ─────────────────────────────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('category')) state.categorySlug = urlParams.get('category');
+if (urlParams.get('sort')) state.sortBy = urlParams.get('sort');
+if (urlParams.get('search')) {
+    state.search = urlParams.get('search');
+    document.getElementById('search-input').value = state.search;
+}
+
 checkAuth();
 loadCategories();
 loadDeals();
 loadSavedIds();
+loadStats();

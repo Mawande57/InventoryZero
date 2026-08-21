@@ -266,6 +266,29 @@ namespace InventoryZeroAPI.Services
                 OwnerName = s.User.FullName
             }).ToList();
         }
+        public async Task<List<ShopProfileDto>> GetVerifiedShopsAsync(int userId)
+        {
+            var shops = await _context.Shops
+                .Include(s => s.User)
+                .Where(s => s.UserId == userId && s.IsVerified == true && s.Status == "Active")  // ✅ ONLY verified + active
+                .ToListAsync();
+
+            return shops.Select(s => new ShopProfileDto
+            {
+                Id = s.Id,
+                ShopName = s.ShopName,
+                ShopDescription = s.ShopDescription,
+                City = s.City,
+                Province = s.Province,
+                Country = s.Country,
+                IsVerified = s.IsVerified,
+                TotalSales = s.TotalSales,
+                TotalRevenue = s.TotalRevenue,
+                Status = s.Status,
+                CreatedAt = s.CreatedAt,
+                OwnerName = s.User.FullName
+            }).ToList();
+        }
 
         public async Task<object> CreateShopAsync(int userId, CreateShopDto dto)
         {
@@ -278,6 +301,7 @@ namespace InventoryZeroAPI.Services
                 PhoneNumber = dto.PhoneNumber,
                 UserId = userId,
                 Status = "Pending",
+                IsVerified= false,
                 CreatedAt = DateTime.Now,
                 CommissionRate = 15.00m
             };
