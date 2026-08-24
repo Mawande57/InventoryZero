@@ -171,11 +171,24 @@
     <!-- Product Detail Modal -->
     <div class="modal-overlay" id="modal" onclick="if(event.target.id==='modal')closeModal(event)">
         <div class="modal">
-            <div class="modal-hero" id="m-img" style="background:#f5f5f3">
-                <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">
+            <!-- Modal Hero with Image Carousel -->
+            <div class="modal-hero" id="m-img" style="background:#f5f5f3;position:relative;overflow:hidden;">
+                <button class="modal-close" onclick="closeModal()">
                     <i class="ti ti-x" aria-hidden="true"></i>
                 </button>
-                📦
+                <div class="modal-carousel" id="m-carousel">
+                    <div class="carousel-slide" id="m-carousel-slide">
+                        <!-- Images will be inserted here -->
+                    </div>
+                    <button class="carousel-btn carousel-prev" id="carousel-prev" onclick="changeImage(-1)">
+                        <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button class="carousel-btn carousel-next" id="carousel-next" onclick="changeImage(1)">
+                        <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <div class="carousel-dots" id="carousel-dots"></div>
+                    <div class="carousel-counter" id="carousel-counter">1 / 1</div>
+                </div>
             </div>
             <div class="modal-body">
                 <div class="modal-top">

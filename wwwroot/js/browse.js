@@ -218,7 +218,7 @@ async function loadCategories() {
     }
 }
 
-// ── LOAD DEALS ───────────────────────────────────────────
+// --LOAD DEALS -----------------------------
 async function loadDeals() {
     document.getElementById('deals-grid').innerHTML = '<div class="deal-skeleton"></div>'.repeat(6);
 
@@ -251,7 +251,6 @@ async function loadDeals() {
             return;
         }
 
-        // ✅ Get user for ownership check
         const user = getUser();
         const isAdminUser = isAdmin();
 
@@ -259,10 +258,15 @@ async function loadDeals() {
             const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
             const hideHeart = isOwnProduct || isAdminUser;
 
+            // ✅ Use image if available
+            const imageHtml = p.mainImageUrl
+                ? `<img src="${p.mainImageUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;" />`
+                : EMOJIS[p.categoryName] || '📦';
+
             return `
                 <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
-                    <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
-                        ${EMOJIS[p.categoryName] || '📦'}
+                    <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'};position:relative;overflow:hidden;">
+                        ${imageHtml}
                         <div class="deal-badges">
                             <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
                             ${p.isUrgent ? `<div class="badge-urgent">
@@ -351,27 +355,58 @@ function goPage(p) {
 }
 
 // ── MODAL ────────────────────────────────────────────────
+// ── IMAGE CAROUSEL STATE ──────────────────────────────
+let currentImageIndex = 0;
+let productImages = [];
+
 function openModal(p) {
     console.log('=== OPEN MODAL DEBUG ===');
-    console.log('📦 Product object:', p);
-    console.log('🔑 Product ID:', p.id);
-    console.log('👤 Shop Owner ID from product:', p.shopOwnerId);
-
     const user = getUser();
-    console.log('👤 Current user:', user);
-    console.log('👤 User ID:', user?.id);
-    console.log('👤 User hasShop:', user?.hasShop);
-
     const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
-    console.log('✅ isOwnProduct result:', isOwnProduct);
+    const isAdminUser = isAdmin();
 
+    // ─── SETUP CAROUSEL ──────────────────────────────────
+    // Get images from product
+    productImages = p.imageUrls || [];
+    currentImageIndex = 0;
+
+    const carouselSlide = document.getElementById('m-carousel-slide');
+    const dotsContainer = document.getElementById('carousel-dots');
+    const counter = document.getElementById('carousel-counter');
+    const prevBtn = document.getElementById('carousel-prev');
+    const nextBtn = document.getElementById('carousel-next');
+
+    // Render images in carousel
+    if (productImages.length > 0) {
+        carouselSlide.innerHTML = productImages.map((url, index) => `
+            <div class="carousel-image-wrapper" data-index="${index}" style="display:${index === 0 ? 'flex' : 'none'};width:100%;height:100%;align-items:center;justify-content:center;">
+                <img src="${url}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" />
+            </div>
+        `).join('');
+
+        // Dots
+        dotsContainer.innerHTML = productImages.map((_, index) => `
+            <span class="carousel-dot ${index === 0 ? 'active' : ''}" onclick="goToImage(${index})"></span>
+        `).join('');
+
+        counter.textContent = `1 / ${productImages.length}`;
+        prevBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
+        nextBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
+    } else {
+        // No images - show emoji
+        carouselSlide.innerHTML = `
+            <div class="emoji-placeholder">${EMOJIS[p.categoryName] || '📦'}</div>
+        `;
+        dotsContainer.innerHTML = '';
+        counter.textContent = '';
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+    }
+
+    // ─── REST OF MODAL ──────────────────────────────────
     const bg = CAT_COLORS[p.categoryName] || '#f5f5f3';
     const modalHero = document.getElementById('m-img');
     modalHero.style.background = bg;
-    const closeBtn = modalHero.querySelector('.modal-close');
-    modalHero.innerHTML = '';
-    modalHero.appendChild(closeBtn);
-    modalHero.insertAdjacentText('beforeend', EMOJIS[p.categoryName] || '📦');
 
     document.getElementById('m-cat').textContent = p.categoryName || 'General';
     document.getElementById('m-title').textContent = p.title;
@@ -393,84 +428,45 @@ function openModal(p) {
     const buyBtn = document.getElementById('m-buy');
     const parent = buyBtn.parentNode;
 
-    // ✅ Remove any existing message before adding a new one
+    // Remove existing messages
     const existingMsg = parent.querySelector('.own-product-msg, .admin-msg');
-    if (existingMsg) {
-        existingMsg.remove();
-    }
+    if (existingMsg) existingMsg.remove();
 
-    // Reset buy button
     buyBtn.style.display = 'block';
     buyBtn.textContent = 'Buy now — ' + fmt(p.salePrice);
 
-    const isAdminUser = isAdmin();
-
     if (isAdminUser) {
-        console.log('🔒 Admin user - hiding buy button');
         buyBtn.style.display = 'none';
         const msg = document.createElement('div');
         msg.className = 'admin-msg';
-        msg.style.cssText = `
-            flex: 1;
-            padding: 13px;
-            background: #e8e8e8;
-            color: #6b7280;
-            border-radius: 12px;
-            text-align: center;
-            font-size: 14px;
-        `;
+        msg.style.cssText = `flex:1;padding:13px;background:#e8e8e8;color:#6b7280;border-radius:12px;text-align:center;font-size:14px;`;
         msg.textContent = '🔒 Admin view only';
         parent.insertBefore(msg, buyBtn);
     } else if (isOwnProduct) {
-        console.log('🚫 User owns this product - hiding buy button');
         buyBtn.style.display = 'none';
         const msg = document.createElement('div');
         msg.className = 'own-product-msg';
-        msg.style.cssText = `
-            flex: 1;
-            padding: 13px;
-            background: #FEF3C7;
-            color: #B45309;
-            border-radius: 12px;
-            text-align: center;
-            font-size: 14px;
-            font-weight: 500;
-        `;
+        msg.style.cssText = `flex:1;padding:13px;background:#FEF3C7;color:#B45309;border-radius:12px;text-align:center;font-size:14px;font-weight:500;`;
         msg.textContent = '🚫 You cannot buy your own products';
         parent.insertBefore(msg, buyBtn);
     } else {
-        console.log('✅ User can buy this product - showing buy button');
         buyBtn.onclick = () => {
             if (!getToken()) window.location.href = '/pages/login.html';
             else window.location.href = '/pages/checkout.html?slug=' + p.slug;
         };
     }
 
-    // ─── SAVE BUTTON - Hide for own products ───
+    // ─── SAVE BUTTON ────────────────────────────────────
     const saveBtn = document.getElementById('m-save');
-
-    // ✅ Remove existing save button message if any
     const parentActions = saveBtn.parentNode;
     const existingSaveMsg = parentActions.querySelector('.own-product-save-msg');
-    if (existingSaveMsg) {
-        existingSaveMsg.remove();
-    }
+    if (existingSaveMsg) existingSaveMsg.remove();
 
     if (isOwnProduct || isAdminUser) {
-        // Hide save button for own products or admin
         saveBtn.style.display = 'none';
-
-        // Optional: Add a small note that saving isn't available
         const note = document.createElement('span');
         note.className = 'own-product-save-msg';
-        note.style.cssText = `
-            font-size: 11px;
-            color: #6b7280;
-            padding: 8px 12px;
-            background: #f8f8f6;
-            border-radius: 8px;
-            text-align: center;
-        `;
+        note.style.cssText = `font-size:11px;color:#6b7280;padding:8px 12px;background:#f8f8f6;border-radius:8px;text-align:center;`;
         note.textContent = isAdminUser ? '🔒 Admin' : '📦 Your item';
         parentActions.insertBefore(note, saveBtn);
     } else {
@@ -482,6 +478,39 @@ function openModal(p) {
 
     document.getElementById('modal').classList.add('open');
     console.log('=== END OPEN MODAL ===');
+}
+
+// ─── CAROUSEL FUNCTIONS ──────────────────────────────────
+
+function changeImage(direction) {
+    if (productImages.length === 0) return;
+
+    currentImageIndex = (currentImageIndex + direction + productImages.length) % productImages.length;
+    updateCarousel();
+}
+
+function goToImage(index) {
+    if (index < 0 || index >= productImages.length) return;
+    currentImageIndex = index;
+    updateCarousel();
+}
+
+function updateCarousel() {
+    const wrappers = document.querySelectorAll('.carousel-image-wrapper');
+    const dots = document.querySelectorAll('.carousel-dot');
+    const counter = document.getElementById('carousel-counter');
+
+    wrappers.forEach((wrapper, index) => {
+        wrapper.style.display = index === currentImageIndex ? 'flex' : 'none';
+    });
+
+    dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index === currentImageIndex);
+    });
+
+    if (counter) {
+        counter.textContent = `${currentImageIndex + 1} / ${productImages.length}`;
+    }
 }
 
 function closeModal() {
