@@ -512,6 +512,19 @@ async function saveProduct() {
     const imageInput = document.getElementById('prod-images');
     const images = imageInput.files;
 
+    console.log('🔍 Form data:', {
+        title,
+        description,
+        originalPrice,
+        salePrice,
+        quantity,
+        condition,
+        shopId,
+        categoryId,
+        isUrgent,
+        imageCount: images.length
+    });
+
     if (!title || !originalPrice || !salePrice || !quantity || !shopId) {
         errEl.textContent = 'Please fill in all required fields.';
         errEl.classList.add('show');
@@ -541,32 +554,43 @@ async function saveProduct() {
 
     // Append images
     for (let i = 0; i < images.length; i++) {
+        console.log(`📷 Appending image ${i + 1}:`, images[i].name, images[i].size);
         formData.append('images', images[i]);
     }
 
     const url = editingProductId ? `${API}/seller/products/${editingProductId}` : `${API}/seller/products`;
     const method = editingProductId ? 'PUT' : 'POST';
 
+    console.log(`📡 Sending ${method} request to:`, url);
+    console.log('📦 FormData entries:');
+    for (let pair of formData.entries()) {
+        console.log('  ', pair[0], pair[1] instanceof File ? `[File: ${pair[1].name}]` : pair[1]);
+    }
+
     try {
         const res = await fetch(url, {
             method: method,
             headers: {
                 'Authorization': 'Bearer ' + getToken()
-                // ✅ DO NOT set Content-Type here - let browser set it with boundary
+                // ✅ DO NOT set Content-Type - browser handles it
             },
             body: formData
         });
 
-        console.log('📡 Response status:', res.status);  // 🔍 Debug
+        console.log('📡 Response status:', res.status);
+        console.log('📡 Response headers:', [...res.headers.entries()]);
 
         if (!res.ok) {
             const err = await res.json();
-            console.log('❌ Error response:', err);  // 🔍 Debug
+            console.log('❌ Error response:', err);
+            // Show alert for debugging
+            alert(`Error ${res.status}: ${err.message || 'Failed to save'}`);
             throw new Error(err.message || 'Failed to save');
         }
 
         const result = await res.json();
-        console.log('✅ Success:', result);  // 🔍 Debug
+        console.log('✅ Success:', result);
+        alert('✅ Product saved successfully!');
 
         // Clear image preview
         document.getElementById('image-preview').innerHTML = '';
@@ -578,7 +602,8 @@ async function saveProduct() {
         loadStats();
 
     } catch (e) {
-        console.error('❌ Save error:', e);  // 🔍 Debug
+        console.error('❌ Save error:', e);
+        alert(`❌ Error: ${e.message}`);
         errEl.textContent = e.message;
         errEl.classList.add('show');
     } finally {

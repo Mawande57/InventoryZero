@@ -76,32 +76,40 @@ namespace InventoryZeroAPI.Controllers
             return Ok(products);
         }
 
+        // Controllers/SellerController.cs
+
         // POST api/seller/products
         [HttpPost("products")]
-        public async Task<IActionResult> CreateProduct([FromBody] CreateProductDto dto)
+        [Consumes("multipart/form-data")]  // ✅ Add this
+        public async Task<IActionResult> CreateProduct([FromForm] CreateProductDto dto)  // ✅ Change [FromBody] to [FromForm]
         {
             try
             {
+                Console.WriteLine($"📦 Creating product: {dto.Title}, ShopId: {dto.ShopId}, Images: {dto.Images?.Count ?? 0}");
                 var result = await _sellerService.CreateProductAsync(GetUserId(), dto);
                 return Ok(result);
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ Error: {ex.Message}");
                 return BadRequest(new { message = ex.Message });
             }
         }
 
         // PUT api/seller/products/{id}
         [HttpPut("products/{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, [FromBody] CreateProductDto dto)
+        [Consumes("multipart/form-data")]  // ✅ Add this
+        public async Task<IActionResult> UpdateProduct(int id, [FromForm] CreateProductDto dto)  // ✅ Change [FromBody] to [FromForm]
         {
             try
             {
+                Console.WriteLine($"📦 Updating product: {id}, Images: {dto.Images?.Count ?? 0}");
                 await _sellerService.UpdateProductAsync(id, GetUserId(), dto);
                 return Ok(new { message = "Product updated." });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ Error: {ex.Message}");
                 return BadRequest(new { message = ex.Message });
             }
         }
