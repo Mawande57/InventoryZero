@@ -25,5 +25,6 @@ namespace InventoryZeroAPI.DTOs.Products
         public int ShopOwnerId { get; set; }
         // Category
         public string? CategoryName { get; set; }
+
     }
 }

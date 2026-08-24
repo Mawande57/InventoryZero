@@ -1,0 +1,145 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Detail — InventoryZero</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/order-detail.css" />
+</head>
+<body>
+
+    <nav class="iz-nav">
+        <div class="iz-logo">
+            <i class="ti ti-bolt"></i>Inventory<span>Zero</span>
+        </div>
+        <div class="nav-links">
+            <a href="/pages/index.html">Home</a>
+            <a href="/pages/browse.html">Browse deals</a>
+        </div>
+        <div class="nav-right" id="nav-right">
+            <button class="btn-ghost" onclick="window.location.href='/pages/login.html'">Sign in</button>
+            <button class="btn-solid" onclick="window.location.href='/pages/register.html'">Get started</button>
+        </div>
+    </nav>
+
+    <div class="order-detail-container">
+        <div class="order-header">
+            <div class="order-header-left">
+                <a href="/pages/buyer-dashboard.html" class="back-link">
+                    <i class="ti ti-arrow-left"></i> Back to Dashboard
+                </a>
+                <h1>Order #<span id="order-number">—</span></h1>
+                <p id="order-date">—</p>
+            </div>
+            <div class="order-status-badge" id="order-status-badge">
+                <span id="order-status">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Tracking Timeline -->
+        <div class="tracking-timeline" id="tracking-timeline">
+            <div class="timeline-step" data-step="1">
+                <div class="step-icon">📦</div>
+                <div class="step-content">
+                    <div class="step-title">Order Placed</div>
+                    <div class="step-date" id="step-placed-date">—</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="timeline-step" data-step="2">
+                <div class="step-icon">✅</div>
+                <div class="step-content">
+                    <div class="step-title">Processing</div>
+                    <div class="step-date" id="step-processing-date">—</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="timeline-step" data-step="3">
+                <div class="step-icon">🚚</div>
+                <div class="step-content">
+                    <div class="step-title">Shipped</div>
+                    <div class="step-date" id="step-shipped-date">—</div>
+                    <div class="step-tracking" id="step-tracking-number">—</div>
+                </div>
+                <div class="step-line"></div>
+            </div>
+            <div class="timeline-step" data-step="4">
+                <div class="step-icon">📬</div>
+                <div class="step-content">
+                    <div class="step-title">Delivered</div>
+                    <div class="step-date" id="step-delivered-date">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Details -->
+        <div class="order-details-grid">
+            <!-- Product Info -->
+            <div class="order-product-card">
+                <div class="product-image" id="order-product-image">
+                    <div style="width:100px;height:100px;background:#f5f5f3;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:40px;">📦</div>
+                </div>
+                <div class="product-info">
+                    <h3 id="order-product-title">—</h3>
+                    <p class="product-shop" id="order-product-shop">—</p>
+                    <div class="product-price">
+                        <span id="order-unit-price">—</span>
+                        <span id="order-quantity">× —</span>
+                        <span class="product-total" id="order-total">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shipping Address -->
+            <div class="order-shipping-card">
+                <h4><i class="ti ti-map-pin"></i> Shipping Address</h4>
+                <p id="order-shipping-name">—</p>
+                <p id="order-shipping-address">—</p>
+                <p id="order-shipping-phone">—</p>
+            </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="order-summary-card">
+            <h4>Order Summary</h4>
+            <div class="summary-row">
+                <span>Subtotal</span>
+                <span id="summary-subtotal">—</span>
+            </div>
+            <div class="summary-row">
+                <span>Shipping</span>
+                <span id="summary-shipping">—</span>
+            </div>
+            <div class="summary-row">
+                <span>Platform Fee</span>
+                <span id="summary-fee">—</span>
+            </div>
+            <div class="summary-row total">
+                <span>Total</span>
+                <span id="summary-total">—</span>
+            </div>
+        </div>
+
+        <!-- Payment Info -->
+        <div class="order-payment-card">
+            <h4><i class="ti ti-credit-card"></i> Payment</h4>
+            <p>Status: <span id="payment-status">—</span></p>
+            <p>Method: <span id="payment-method">—</span></p>
+        </div>
+    </div>
+
+    <footer class="iz-footer">
+        <p>© 2025 InventoryZero. Built for South Africa.</p>
+        <div class="footer-links">
+            <a href="#">About</a>
+            <a href="#">Terms</a>
+            <a href="#">Privacy</a>
+            <a href="#">Contact</a>
+        </div>
+    </footer>
+
+    <script src="/js/order-detail.js"></script>
+</body>
+</html>

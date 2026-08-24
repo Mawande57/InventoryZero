@@ -509,6 +509,10 @@ async function saveProduct() {
     const categoryId = document.getElementById('prod-category').value ? parseInt(document.getElementById('prod-category').value) : null;
     const isUrgent = document.getElementById('prod-urgent').checked;
 
+    // ✅ Get images
+    const imageInput = document.getElementById('prod-images');
+    const images = imageInput.files;
+
     if (!title || !originalPrice || !salePrice || !quantity || !shopId) {
         errEl.textContent = 'Please fill in all required fields.';
         errEl.classList.add('show');
@@ -525,21 +529,45 @@ async function saveProduct() {
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
-    const data = { title, description, originalPrice, salePrice, quantity, condition, shopId, categoryId, isUrgent };
+    // ✅ Use FormData for file upload
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description || '');
+    formData.append('originalPrice', originalPrice);
+    formData.append('salePrice', salePrice);
+    formData.append('quantity', quantity);
+    formData.append('condition', condition);
+    formData.append('shopId', shopId);
+    if (categoryId) formData.append('categoryId', categoryId);
+    formData.append('isUrgent', isUrgent);
+
+    // ✅ Append images
+    for (let i = 0; i < images.length; i++) {
+        formData.append('images', images[i]);
+    }
+
     const url = editingProductId ? `${API}/seller/products/${editingProductId}` : `${API}/seller/products`;
     const method = editingProductId ? 'PUT' : 'POST';
 
     try {
         const res = await fetch(url, {
             method: method,
-            headers: authHeaders(),
-            body: JSON.stringify(data)
+            headers: {
+                'Authorization': 'Bearer ' + getToken()
+                // ✅ Don't set Content-Type - FormData handles it
+            },
+            body: formData
         });
 
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.message || 'Failed to save');
         }
+
+        // ✅ Clear image preview
+        document.getElementById('image-preview').innerHTML = '';
+        document.getElementById('prod-images').value = '';
+        selectedFiles = [];
 
         closeModal('add-product-modal');
         loadSellerProducts();
@@ -553,7 +581,6 @@ async function saveProduct() {
         btn.textContent = editingProductId ? 'Update Product' : 'Add Product';
     }
 }
-
 async function deleteProduct(id) {
     if (!confirm('Delete this product permanently?')) return;
 
@@ -659,6 +686,64 @@ function renderDashboardSwitcher() {
             </button>
         `;
     }
+}
+// ── IMAGE PREVIEW ────────────────────────────────────────
+
+let selectedFiles = [];
+
+function previewImages(event) {
+    const preview = document.getElementById('image-preview');
+    preview.innerHTML = '';
+    selectedFiles = [];
+
+    const files = event.target.files;
+    if (files.length > 5) {
+        alert('Maximum 5 images allowed.');
+        event.target.value = '';
+        return;
+    }
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) continue;
+
+        selectedFiles.push(file);
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const div = document.createElement('div');
+            div.style.cssText = `
+                position: relative;
+                width: 80px;
+                height: 80px;
+                border-radius: 8px;
+                overflow: hidden;
+                border: 1px solid #e8e8e8;
+            `;
+            div.innerHTML = `
+                <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;" />
+                <span onclick="removeImage(${i})" style="
+                    position:absolute;top:2px;right:2px;
+                    background:rgba(0,0,0,0.6);color:#fff;
+                    border-radius:50%;width:20px;height:20px;
+                    display:flex;align-items:center;justify-content:center;
+                    cursor:pointer;font-size:12px;
+                ">×</span>
+            `;
+            preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function removeImage(index) {
+    selectedFiles.splice(index, 1);
+    // Rebuild preview
+    const input = document.getElementById('prod-images');
+    const dt = new DataTransfer();
+    selectedFiles.forEach(f => dt.items.add(f));
+    input.files = dt.files;
+    previewImages({ target: input });
 }
 
 

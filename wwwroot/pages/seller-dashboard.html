@@ -181,6 +181,13 @@
                 <button class="btn-save" id="prod-save-btn" onclick="saveProduct()" style="width:100%">
                     Add Product
                 </button>
+                <div class="field">
+                    <label>Product Images</label>
+                    <input type="file" id="prod-images" multiple accept="image/*"
+                           onchange="previewImages(event)" />
+                    <div id="image-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+                    <small style="color:#6b7280;font-size:11px;">Upload up to 5 images. First image will be the main photo.</small>
+                </div>
             </div>
         </div>
     </div>

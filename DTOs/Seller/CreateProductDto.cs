@@ -11,5 +11,7 @@
         public int ShopId { get; set; }
         public int? CategoryId { get; set; }
         public bool IsUrgent { get; set; }
+
+        public List<IFormFile>? Images { get; set; }
     }
 }

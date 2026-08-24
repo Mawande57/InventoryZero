@@ -166,6 +166,8 @@ namespace InventoryZeroAPI.Services
             }).ToList();
         }
 
+        // Services/SellerService.cs - Update CreateProductAsync
+
         public async Task<object> CreateProductAsync(int userId, CreateProductDto dto)
         {
             var shop = await _context.Shops
@@ -189,7 +191,7 @@ namespace InventoryZeroAPI.Services
                 IsUrgent = dto.IsUrgent,
                 ShopId = dto.ShopId,
                 CategoryId = dto.CategoryId,
-                AdminApproved = true, // Auto-approve for simplicity
+                AdminApproved = true,
                 Status = "Active",
                 ListingEndDate = DateTime.Now.AddDays(7),
                 CreatedAt = DateTime.Now
@@ -198,13 +200,51 @@ namespace InventoryZeroAPI.Services
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
 
+            // ✅ Handle image upload
+            if (dto.Images != null && dto.Images.Any())
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                var imageList = new List<ProductImage>();
+
+                for (int i = 0; i < dto.Images.Count; i++)
+                {
+                    var file = dto.Images[i];
+                    var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+                    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    var imageUrl = $"/uploads/products/{uniqueFileName}";
+
+                    imageList.Add(new ProductImage
+                    {
+                        ProductId = product.Id,
+                        ImageUrl = imageUrl,
+                        IsMain = i == 0,  // First image is main
+                        SortOrder = i,
+                        CreatedAt = DateTime.Now
+                    });
+                }
+
+                await _context.ProductImages.AddRangeAsync(imageList);
+                await _context.SaveChangesAsync();
+            }
+
             return new { Id = product.Id, Slug = product.Slug };
         }
 
+        // Also update UpdateProductAsync for editing images
         public async Task UpdateProductAsync(int productId, int userId, CreateProductDto dto)
         {
             var product = await _context.Products
                 .Include(p => p.Shop)
+                .Include(p => p.ProductImages)
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)
@@ -224,8 +264,43 @@ namespace InventoryZeroAPI.Services
             product.CategoryId = dto.CategoryId;
             product.UpdatedAt = DateTime.Now;
 
-            await _context.SaveChangesAsync();
+            // ✅ Handle new images
+            if (dto.Images != null && dto.Images.Any())
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                // Keep existing images count for sort order
+                var existingCount = product.ProductImages.Count;
+
+                for (int i = 0; i < dto.Images.Count; i++)
+                {
+                    var file = dto.Images[i];
+                    var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+                    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    var imageUrl = $"/uploads/products/{uniqueFileName}";
+
+                    _context.ProductImages.Add(new ProductImage
+                    {
+                        ProductId = product.Id,
+                        ImageUrl = imageUrl,
+                        IsMain = existingCount == 0 && i == 0,
+                        SortOrder = existingCount + i,
+                        CreatedAt = DateTime.Now
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+            }
         }
+
 
         public async Task DeleteProductAsync(int productId, int userId)
         {
