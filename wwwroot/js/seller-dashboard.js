@@ -509,7 +509,6 @@ async function saveProduct() {
     const categoryId = document.getElementById('prod-category').value ? parseInt(document.getElementById('prod-category').value) : null;
     const isUrgent = document.getElementById('prod-urgent').checked;
 
-    // ✅ Get images
     const imageInput = document.getElementById('prod-images');
     const images = imageInput.files;
 
@@ -529,7 +528,6 @@ async function saveProduct() {
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
-    // ✅ Use FormData for file upload
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description || '');
@@ -541,7 +539,7 @@ async function saveProduct() {
     if (categoryId) formData.append('categoryId', categoryId);
     formData.append('isUrgent', isUrgent);
 
-    // ✅ Append images
+    // Append images
     for (let i = 0; i < images.length; i++) {
         formData.append('images', images[i]);
     }
@@ -554,17 +552,23 @@ async function saveProduct() {
             method: method,
             headers: {
                 'Authorization': 'Bearer ' + getToken()
-                // ✅ Don't set Content-Type - FormData handles it
+                // ✅ DO NOT set Content-Type here - let browser set it with boundary
             },
             body: formData
         });
 
+        console.log('📡 Response status:', res.status);  // 🔍 Debug
+
         if (!res.ok) {
             const err = await res.json();
+            console.log('❌ Error response:', err);  // 🔍 Debug
             throw new Error(err.message || 'Failed to save');
         }
 
-        // ✅ Clear image preview
+        const result = await res.json();
+        console.log('✅ Success:', result);  // 🔍 Debug
+
+        // Clear image preview
         document.getElementById('image-preview').innerHTML = '';
         document.getElementById('prod-images').value = '';
         selectedFiles = [];
@@ -574,6 +578,7 @@ async function saveProduct() {
         loadStats();
 
     } catch (e) {
+        console.error('❌ Save error:', e);  // 🔍 Debug
         errEl.textContent = e.message;
         errEl.classList.add('show');
     } finally {

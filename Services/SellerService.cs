@@ -168,6 +168,8 @@ namespace InventoryZeroAPI.Services
 
         // Services/SellerService.cs - Update CreateProductAsync
 
+        // Services/SellerService.cs
+
         public async Task<object> CreateProductAsync(int userId, CreateProductDto dto)
         {
             var shop = await _context.Shops
@@ -200,14 +202,12 @@ namespace InventoryZeroAPI.Services
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
 
-            // ✅ Handle image upload
+            // ✅ Handle image upload - check for null
             if (dto.Images != null && dto.Images.Any())
             {
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
-
-                var imageList = new List<ProductImage>();
 
                 for (int i = 0; i < dto.Images.Count; i++)
                 {
@@ -222,17 +222,16 @@ namespace InventoryZeroAPI.Services
 
                     var imageUrl = $"/uploads/products/{uniqueFileName}";
 
-                    imageList.Add(new ProductImage
+                    _context.ProductImages.Add(new ProductImage
                     {
                         ProductId = product.Id,
                         ImageUrl = imageUrl,
-                        IsMain = i == 0,  // First image is main
+                        IsMain = i == 0,
                         SortOrder = i,
                         CreatedAt = DateTime.Now
                     });
                 }
 
-                await _context.ProductImages.AddRangeAsync(imageList);
                 await _context.SaveChangesAsync();
             }
 

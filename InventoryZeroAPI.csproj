@@ -27,6 +27,7 @@
   <ItemGroup>
     <Folder Include="bin\Debug\net8.0\" />
     <Folder Include="Data\NewFolder\" />
+    <Folder Include="wwwroot\uploads\products\" />
   </ItemGroup>
 
 </Project>
