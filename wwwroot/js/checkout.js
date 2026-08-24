@@ -289,7 +289,17 @@ async function placeOrder() {
         });
 
         const data = await res.json();
+
         if (!res.ok) {
+            // ✅ Handle out of stock error
+            if (data.message && data.message.includes('Only')) {
+                errEl.textContent = 'Sorry! ' + data.message;
+                errEl.classList.add('show');
+
+                // Refresh product to show updated stock
+                await loadProduct();
+                return;
+            }
             errEl.textContent = data.message || 'Could not place order.';
             errEl.classList.add('show');
             return;

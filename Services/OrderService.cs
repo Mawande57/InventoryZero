@@ -8,7 +8,7 @@ namespace InventoryZeroAPI.Services
     public class OrderService : IOrderService
     {
         private readonly InventoryZeroDbContext _context;
-
+        private readonly SemaphoreSlim _stockLock = new SemaphoreSlim(1, 1);
         public OrderService(InventoryZeroDbContext context)
         {
             _context = context;
@@ -16,133 +16,152 @@ namespace InventoryZeroAPI.Services
 
         public async Task<OrderDetailDto> PlaceOrderAsync(int buyerId, PlaceOrderDto dto)
         {
-            // 1. Get the product with shop info
-            var product = await _context.Products
-                .Include(p => p.Shop)
-                .Include(p => p.ProductImages)
-                .FirstOrDefaultAsync(p =>
-                    p.Id == dto.ProductId &&
-                    p.Status == "Active" &&
-                    p.AdminApproved);
+            // ✅ Lock to prevent race conditions
+            await _stockLock.WaitAsync();
 
-            if (product == null)
-                throw new Exception("Product not found or no longer available.");
-
-            if (product.Shop.UserId == buyerId)
-                throw new Exception("You cannot purchase your own products.");
-            // 2. Check stock
-            var remaining = product.Quantity - product.SoldQuantity;
-            if (dto.Quantity > remaining)
-                throw new Exception($"Only {remaining} units available.");
-
-            // 3. If buyer provided a saved address ID use that
-            string addressLine1 = dto.ShippingAddressLine1;
-            string? addressLine2 = dto.ShippingAddressLine2;
-            string city = dto.ShippingCity;
-            string province = dto.ShippingProvince;
-            string postalCode = dto.ShippingPostalCode;
-            string phone = dto.ShippingPhoneNumber;
-
-            if (dto.SavedAddressId.HasValue)
+            try
             {
-                var saved = await _context.UserAddresses
-                    .FirstOrDefaultAsync(a =>
-                        a.Id == dto.SavedAddressId.Value &&
-                        a.UserId == buyerId);
+                // 1. Get the product with shop info
+                var product = await _context.Products
+                    .Include(p => p.Shop)
+                    .Include(p => p.ProductImages)
+                    .FirstOrDefaultAsync(p =>
+                        p.Id == dto.ProductId &&
+                        p.Status == "Active" &&
+                        p.AdminApproved);
 
-                if (saved != null)
+                if (product == null)
+                    throw new Exception("Product not found or no longer available.");
+
+                if (product.Shop.UserId == buyerId)
+                    throw new Exception("You cannot purchase your own products.");
+
+                // 2. Check stock - ✅ ATOMIC check inside lock
+                var remaining = product.Quantity - product.SoldQuantity;
+                if (dto.Quantity > remaining)
+                    throw new Exception($"Only {remaining} units available.");
+
+                // 3. If buyer provided a saved address ID use that
+                string addressLine1 = dto.ShippingAddressLine1;
+                string? addressLine2 = dto.ShippingAddressLine2;
+                string city = dto.ShippingCity;
+                string province = dto.ShippingProvince;
+                string postalCode = dto.ShippingPostalCode;
+                string phone = dto.ShippingPhoneNumber;
+
+                if (dto.SavedAddressId.HasValue)
                 {
-                    addressLine1 = saved.AddressLine1;
-                    addressLine2 = saved.AddressLine2;
-                    city = saved.City;
-                    province = saved.Province;
-                    postalCode = saved.PostalCode;
-                    phone = saved.PhoneNumber;
+                    var saved = await _context.UserAddresses
+                        .FirstOrDefaultAsync(a =>
+                            a.Id == dto.SavedAddressId.Value &&
+                            a.UserId == buyerId);
+
+                    if (saved != null)
+                    {
+                        addressLine1 = saved.AddressLine1;
+                        addressLine2 = saved.AddressLine2;
+                        city = saved.City;
+                        province = saved.Province;
+                        postalCode = saved.PostalCode;
+                        phone = saved.PhoneNumber;
+                    }
                 }
+
+                // 4. Calculate amounts
+                var unitPrice = product.SalePrice;
+                var subtotal = unitPrice * dto.Quantity;
+                var shippingCost = 0m;
+                var taxAmount = 0m;
+                var totalAmount = subtotal + shippingCost + taxAmount;
+
+                // 5. Calculate platform fee and seller payout
+                var commissionRate = product.Shop.CommissionRate / 100;
+                var platformFee = Math.Round(totalAmount * commissionRate, 2);
+                var sellerPayout = totalAmount - platformFee;
+
+                // 6. Generate unique order number
+                var orderNumber = "IZ-" + DateTime.Now.ToString("yyyyMMdd") +
+                                  "-" + Guid.NewGuid().ToString("N")[..6].ToUpper();
+
+                // 7. Create the order
+                var order = new Order
+                {
+                    OrderNumber = orderNumber,
+                    BuyerId = buyerId,
+                    ShopId = product.ShopId,
+                    Quantity = dto.Quantity,
+                    UnitPrice = unitPrice,
+                    Subtotal = subtotal,
+                    ShippingCost = shippingCost,
+                    TaxAmount = taxAmount,
+                    TotalAmount = totalAmount,
+                    PlatformFee = platformFee,
+                    SellerPayout = sellerPayout,
+                    PaymentStatus = "Pending",
+                    OrderStatus = "Pending",
+                    ShippingAddressLine1 = addressLine1,
+                    ShippingAddressLine2 = addressLine2,
+                    ShippingCity = city,
+                    ShippingProvince = province,
+                    ShippingPostalCode = postalCode,
+                    ShippingCountry = "South Africa",
+                    ShippingPhoneNumber = phone,
+                    BuyerNotes = dto.BuyerNotes,
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.Orders.Add(order);
+
+                // 8. Create order item
+                var orderItem = new OrderItem
+                {
+                    Order = order,
+                    ProductId = product.Id,
+                    Quantity = dto.Quantity,
+                    UnitPrice = unitPrice,
+                    Subtotal = subtotal,
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.OrderItems.Add(orderItem);
+
+                // 9. ✅ Update product sold quantity (ATOMIC - inside lock)
+                product.SoldQuantity += dto.Quantity;
+                product.UpdatedAt = DateTime.Now;
+
+                // ✅ If out of stock, update status
+                if (product.Quantity - product.SoldQuantity <= 0)
+                {
+                    product.Status = "Out of Stock";
+                }
+
+                // 10. Update shop total sales
+                product.Shop.TotalSales += dto.Quantity;
+                product.Shop.TotalRevenue += sellerPayout;
+
+                // 11. Create a pending payout record for the seller
+                var payout = new Payout
+                {
+                    ShopId = product.ShopId,
+                    OrderId = order.Id,
+                    Amount = sellerPayout,
+                    Status = "Pending",
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.Payouts.Add(payout);
+
+                // ✅ Save all changes atomically
+                await _context.SaveChangesAsync();
+
+                return await GetOrderDetailAsync(order.Id, buyerId)
+                    ?? throw new Exception("Order created but could not be retrieved.");
             }
-
-            // 4. Calculate amounts
-            var unitPrice = product.SalePrice;
-            var subtotal = unitPrice * dto.Quantity;
-            var shippingCost = 0m; // free shipping for now
-            var taxAmount = 0m;   // no tax for now
-            var totalAmount = subtotal + shippingCost + taxAmount;
-
-            // 5. Calculate platform fee and seller payout
-            var commissionRate = product.Shop.CommissionRate / 100;
-            var platformFee = Math.Round(totalAmount * commissionRate, 2);
-            var sellerPayout = totalAmount - platformFee;
-
-            // 6. Generate unique order number
-            var orderNumber = "IZ-" + DateTime.Now.ToString("yyyyMMdd") +
-                              "-" + Guid.NewGuid().ToString("N")[..6].ToUpper();
-
-            // 7. Create the order
-            var order = new Order
+            finally
             {
-                OrderNumber = orderNumber,
-                BuyerId = buyerId,
-                ShopId = product.ShopId,
-                Quantity = dto.Quantity,
-                UnitPrice = unitPrice,
-                Subtotal = subtotal,
-                ShippingCost = shippingCost,
-                TaxAmount = taxAmount,
-                TotalAmount = totalAmount,
-                PlatformFee = platformFee,
-                SellerPayout = sellerPayout,
-                PaymentStatus = "Pending",
-                OrderStatus = "Pending",
-                ShippingAddressLine1 = addressLine1,
-                ShippingAddressLine2 = addressLine2,
-                ShippingCity = city,
-                ShippingProvince = province,
-                ShippingPostalCode = postalCode,
-                ShippingCountry = "South Africa",
-                ShippingPhoneNumber = phone,
-                BuyerNotes = dto.BuyerNotes,
-                CreatedAt = DateTime.Now
-            };
-
-            _context.Orders.Add(order);
-
-            // 8. Create order item
-            var orderItem = new OrderItem
-            {
-                Order = order,
-                ProductId = product.Id,
-                Quantity = dto.Quantity,
-                UnitPrice = unitPrice,
-                Subtotal = subtotal,
-                CreatedAt = DateTime.Now
-            };
-
-            _context.OrderItems.Add(orderItem);
-
-            // 9. Update product sold quantity
-            product.SoldQuantity += dto.Quantity;
-
-            // 10. Update shop total sales
-            product.Shop.TotalSales += dto.Quantity;
-            product.Shop.TotalRevenue += sellerPayout;
-
-            await _context.SaveChangesAsync();
-
-            // 11. Create a pending payout record for the seller
-            var payout = new Payout
-            {
-                ShopId = product.ShopId,
-                OrderId = order.Id,
-                Amount = sellerPayout,
-                Status = "Pending",
-                CreatedAt = DateTime.Now
-            };
-
-            _context.Payouts.Add(payout);
-            await _context.SaveChangesAsync();
-
-            return await GetOrderDetailAsync(order.Id, buyerId)
-                ?? throw new Exception("Order created but could not be retrieved.");
+                // ✅ Always release the lock
+                _stockLock.Release();
+            }
         }
 
         public async Task<List<OrderSummaryDto>> GetMyOrdersAsync(int buyerId)
