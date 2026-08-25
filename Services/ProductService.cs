@@ -125,7 +125,6 @@ namespace InventoryZeroAPI.Services
 
         public async Task<ProductDetailDto?> GetBySlugAsync(string slug)
         {
-            // Increment views first — fire and forget
             var product = await _context.Products
                 .Include(p => p.Shop)
                 .Include(p => p.Category)
@@ -139,14 +138,19 @@ namespace InventoryZeroAPI.Services
 
             if (product == null) return null;
 
-            // Increment view count
             product.Views++;
             await _context.SaveChangesAsync();
 
-            // Calculate average rating from reviews
             var avgRating = product.Reviews.Any()
                 ? product.Reviews.Average(r => r.Rating)
                 : 0;
+
+            var imageUrls = product.ProductImages
+                .Select(i => i.ImageUrl)
+                .ToList();
+
+            // ✅ Debug log
+            Console.WriteLine($"📸 Product: {product.Title}, Images found: {imageUrls.Count}");
 
             return new ProductDetailDto
             {
@@ -172,9 +176,7 @@ namespace InventoryZeroAPI.Services
                 Saves = product.Saves,
                 Status = product.Status,
                 CreatedAt = product.CreatedAt,
-                ImageUrls = product.ProductImages
-                    .Select(i => i.ImageUrl)
-                    .ToList(),
+                ImageUrls = imageUrls,  // ✅ This should work
                 ShopId = product.Shop.Id,
                 ShopName = product.Shop.ShopName,
                 ShopCity = product.Shop.City,
@@ -209,6 +211,7 @@ namespace InventoryZeroAPI.Services
                 Id = p.Id,
                 Title = p.Title,
                 Slug = p.Slug,
+                ShopOwnerId = p.Shop.UserId,
                 ShortDescription = p.ShortDescription,
                 OriginalPrice = p.OriginalPrice,
                 SalePrice = p.SalePrice,
@@ -248,6 +251,7 @@ namespace InventoryZeroAPI.Services
                 Id = p.Id,
                 Title = p.Title,
                 Slug = p.Slug,
+                ShopOwnerId = p.Shop.UserId,  // ✅ ADD THIS LINE
                 ShortDescription = p.ShortDescription,
                 OriginalPrice = p.OriginalPrice,
                 SalePrice = p.SalePrice,

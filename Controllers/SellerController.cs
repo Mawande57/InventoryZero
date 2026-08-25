@@ -76,12 +76,27 @@ namespace InventoryZeroAPI.Controllers
             return Ok(products);
         }
 
-        // Controllers/SellerController.cs
+        // ✅ GET api/seller/products/{id} - Get single product for editing
+        [HttpGet("products/{id}")]
+        public async Task<IActionResult> GetProduct(int id)
+        {
+            try
+            {
+                var product = await _sellerService.GetProductByIdAsync(id, GetUserId());
+                if (product == null)
+                    return NotFound(new { message = "Product not found." });
+                return Ok(product);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
-        // POST api/seller/products
+        // ✅ POST api/seller/products - Create product with images
         [HttpPost("products")]
-        [Consumes("multipart/form-data")]  // ✅ Add this
-        public async Task<IActionResult> CreateProduct([FromForm] CreateProductDto dto)  // ✅ Change [FromBody] to [FromForm]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreateProduct([FromForm] CreateProductDto dto)
         {
             try
             {
@@ -96,20 +111,25 @@ namespace InventoryZeroAPI.Controllers
             }
         }
 
+        // ✅ PUT api/seller/products/{id} - Update product with images
         // PUT api/seller/products/{id}
         [HttpPut("products/{id}")]
-        [Consumes("multipart/form-data")]  // ✅ Add this
-        public async Task<IActionResult> UpdateProduct(int id, [FromForm] CreateProductDto dto)  // ✅ Change [FromBody] to [FromForm]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UpdateProduct(int id, [FromForm] CreateProductDto dto)
         {
             try
             {
-                Console.WriteLine($"📦 Updating product: {id}, Images: {dto.Images?.Count ?? 0}");
-                await _sellerService.UpdateProductAsync(id, GetUserId(), dto);
-                return Ok(new { message = "Product updated." });
+                Console.WriteLine($"📦 Updating product: {id}");
+                var updatedProduct = await _sellerService.UpdateProductAsync(id, GetUserId(), dto);
+                return Ok(new
+                {
+                    message = "Product updated.",
+                    product = updatedProduct
+                });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error: {ex.Message}");
+                Console.WriteLine($"❌ Error updating product: {ex.Message}");
                 return BadRequest(new { message = ex.Message });
             }
         }

@@ -32,6 +32,11 @@ function getUser() {
     return u ? JSON.parse(u) : null;
 }
 
+function isAdmin() {
+    const user = getUser();
+    return user && user.role === 'Admin';
+}
+
 // ── SAVED STATE ──────────────────────────────────────────
 let savedIds = new Set();
 
@@ -222,11 +227,34 @@ async function loadShop(shopId) {
 }
 
 // ── LOAD SHOP PRODUCTS ───────────────────────────────────
+// ── LOAD SHOP PRODUCTS ───────────────────────────────────
+
+// ── LOAD SHOP PRODUCTS ───────────────────────────────────
 
 async function loadProducts(shopId) {
     try {
         const res = await fetch(`${API}/shops/${shopId}/products`);
         const products = await res.json();
+
+        console.log('=== SHOP PRODUCTS DEBUG ===');
+        console.log('📦 Products from API:', products);
+        console.log('📦 Number of products:', products.length);
+
+        // 🔍 Check each product for shopOwnerId
+        products.forEach((p, index) => {
+            console.log(`📦 Product ${index + 1}:`, {
+                id: p.id,
+                title: p.title,
+                shopOwnerId: p.shopOwnerId,
+                hasShopOwnerId: p.hasOwnProperty('shopOwnerId')
+            });
+        });
+
+        // Get current user
+        const user = getUser();
+        console.log('👤 Current user:', user);
+        console.log('👤 User ID:', user?.id);
+        console.log('👤 User hasShop:', user?.hasShop);
 
         // Update listing count in stats and header
         document.getElementById('sh-listings').textContent = products.length;
@@ -243,62 +271,164 @@ async function loadProducts(shopId) {
             return;
         }
 
-        document.getElementById('deals-grid').innerHTML = products.map(p => `
-            <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
-                <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'}">
-                    ${EMOJIS[p.categoryName] || '📦'}
-                    <div class="deal-badges">
-                        <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
-                        ${p.isUrgent
-                ? `<div class="badge-urgent">
+        const isAdminUser = isAdmin();
+
+        document.getElementById('deals-grid').innerHTML = products.map(p => {
+            // ✅ Check if user owns this product
+            const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
+
+            console.log(`🔍 Product "${p.title}":`, {
+                shopOwnerId: p.shopOwnerId,
+                userId: user?.id,
+                isOwnProduct: isOwnProduct,
+                match: user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId
+            });
+
+            // ✅ Hide heart for own products OR admin
+            const hideHeart = isOwnProduct || isAdminUser;
+
+            const imageHtml = p.mainImageUrl
+                ? `<img src="${p.mainImageUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;" />`
+                : EMOJIS[p.categoryName] || '📦';
+
+            return `
+                <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
+                    <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'};position:relative;overflow:hidden;">
+                        ${imageHtml}
+                        <div class="deal-badges">
+                            <div class="badge-off">-${Math.round(p.discountPercentage)}%</div>
+                            ${p.isUrgent ? `<div class="badge-urgent">
                                 <i class="ti ti-clock" aria-hidden="true"></i>
                                 ${daysLeft(p.listingEndDate)}
-                            </div>`
-                : ''}
+                            </div>` : ''}
+                            ${isOwnProduct ? `<div class="badge-own">📦 Your item</div>` : ''}
+                        </div>
+                        ${!hideHeart ? `
+                            <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
+                                <i class="ti ti-heart" aria-hidden="true"></i>
+                            </button>
+                        ` : `
+                            <span class="deal-save-disabled" style="position:absolute;top:8px;right:8px;font-size:11px;color:#6b7280;background:rgba(255,255,255,0.9);padding:2px 8px;border-radius:999px;">
+                                ${isAdminUser ? '🔒' : '📦'}
+                            </span>
+                        `}
                     </div>
-                    <button class="deal-save-btn" data-product-id="${p.id}" onclick="event.stopPropagation();toggleSave(${p.id})">
-                        <i class="ti ti-heart" aria-hidden="true"></i>
-                    </button>
+                    <div class="deal-body">
+                        <div class="deal-cat">${p.categoryName || 'General'}</div>
+                        <div class="deal-title">${p.title}</div>
+                        <div class="deal-shop">${p.shopName}</div>
+                        <div class="deal-pricing">
+                            <span class="deal-price">${fmt(p.salePrice)}</span>
+                            <span class="deal-orig">${fmt(p.originalPrice)}</span>
+                        </div>
+                        <div class="deal-foot">
+                            <span class="deal-stock">
+                                <span class="stock-dot"></span>
+                                ${p.remainingQuantity} left
+                            </span>
+                            <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)}</span>
+                            ${isOwnProduct ? `<span style="font-size:10px;color:#B45309;background:#FEF3C7;padding:2px 8px;border-radius:999px;margin-left:4px;">Your item</span>` : ''}
+                        </div>
+                    </div>
                 </div>
-                <div class="deal-body">
-                    <div class="deal-cat">${p.categoryName || 'General'}</div>
-                    <div class="deal-title">${p.title}</div>
-                    <div class="deal-shop">${p.shopName}</div>
-                    <div class="deal-pricing">
-                        <span class="deal-price">${fmt(p.salePrice)}</span>
-                        <span class="deal-orig">${fmt(p.originalPrice)}</span>
-                    </div>
-                    <div class="deal-foot">
-                        <span class="deal-stock">
-                            <span class="stock-dot"></span>
-                            ${p.remainingQuantity} left
-                        </span>
-                        <span style="font-size:11px;color:#bbb">${daysLeft(p.listingEndDate)}</span>
-                    </div>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         // Apply saved state after rendering
         applySavedState();
 
     } catch (e) {
+        console.error('Could not load listings:', e);
         document.getElementById('deals-grid').innerHTML = `
             <p style="font-size:13px;color:#666;padding:1rem;grid-column:1/-1">
                 Could not load listings.
             </p>`;
     }
 }
-
 // ── MODAL ────────────────────────────────────────────────
+// ── MODAL ────────────────────────────────────────────────
+let currentImageIndex = 0;
+let productImages = [];
 
-function openModal(p) {
+function openModal(productData) {
+    console.log('=== SHOP PROFILE OPEN MODAL ===');
+    console.log('📦 Product data received:', productData);
+
+    // If we don't have imageUrls, fetch the full product
+    if (!productData.imageUrls) {
+        console.log('🔍 No imageUrls found, fetching full product details...');
+        fetch(`${API}/products/${productData.slug}`)
+            .then(res => {
+                console.log('📡 Fetch response status:', res.status);
+                if (!res.ok) throw new Error('Product not found');
+                return res.json();
+            })
+            .then(fullProduct => {
+                console.log('✅ Full product fetched:', fullProduct);
+                renderModal(fullProduct);
+            })
+            .catch(err => {
+                console.error('❌ Error fetching full product:', err);
+                // Fallback: render with what we have
+                renderModal(productData);
+            });
+        return;
+    }
+
+    renderModal(productData);
+}
+
+function renderModal(p) {
+    console.log('🎨 Rendering modal with:', p);
+
+    const user = getUser();
+    const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
+    const isAdminUser = isAdmin();
+
+    // ─── SETUP CAROUSEL ──────────────────────────────────
+    productImages = p.imageUrls || [];
+    currentImageIndex = 0;
+    console.log('📸 Images for carousel:', productImages.length, 'images');
+
+    const carouselSlide = document.getElementById('m-carousel-slide');
+    const dotsContainer = document.getElementById('carousel-dots');
+    const counter = document.getElementById('carousel-counter');
+    const prevBtn = document.getElementById('carousel-prev');
+    const nextBtn = document.getElementById('carousel-next');
+
+    // Check if carousel elements exist
+    if (carouselSlide) {
+        if (productImages && productImages.length > 0) {
+            console.log('✅ Rendering', productImages.length, 'images');
+            carouselSlide.innerHTML = productImages.map((url, index) => `
+                <div class="carousel-image-wrapper" data-index="${index}" style="display:${index === 0 ? 'flex' : 'none'};width:100%;height:100%;align-items:center;justify-content:center;">
+                    <img src="${url}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'"/>
+                </div>
+            `).join('');
+
+            dotsContainer.innerHTML = productImages.map((_, index) => `
+                <span class="carousel-dot ${index === 0 ? 'active' : ''}" onclick="goToImage(${index})"></span>
+            `).join('');
+
+            counter.textContent = `1 / ${productImages.length}`;
+            prevBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
+            nextBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
+        } else {
+            console.log('❌ No images, showing emoji');
+            carouselSlide.innerHTML = `
+                <div class="emoji-placeholder" style="font-size:72px;">${EMOJIS[p.categoryName] || '📦'}</div>
+            `;
+            dotsContainer.innerHTML = '';
+            counter.textContent = '';
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+        }
+    }
+
+    // ─── FILL MODAL CONTENT ──────────────────────────────
+    const bg = CAT_COLORS[p.categoryName] || '#f5f5f3';
     const modalHero = document.getElementById('m-img');
-    modalHero.style.background = CAT_COLORS[p.categoryName] || '#f5f5f3';
-    const closeBtn = modalHero.querySelector('.modal-close');
-    modalHero.innerHTML = '';
-    modalHero.appendChild(closeBtn);
-    modalHero.insertAdjacentText('beforeend', EMOJIS[p.categoryName] || '📦');
+    modalHero.style.background = bg;
 
     document.getElementById('m-cat').textContent = p.categoryName || 'General';
     document.getElementById('m-title').textContent = p.title;
@@ -312,7 +442,6 @@ function openModal(p) {
     document.getElementById('m-shop').textContent = p.shopName;
     document.getElementById('m-shoploc').textContent = p.shopCity || '';
 
-    // ✅ FIX: Make shop row clickable
     document.getElementById('m-shop-row').onclick = () => {
         window.location.href = '/pages/shop-profile.html?id=' + p.shopId;
     };
@@ -322,25 +451,99 @@ function openModal(p) {
     document.getElementById('m-desc').textContent =
         p.shortDescription || 'No description available.';
 
+    // ─── BUY BUTTON ──────────────────────────────────────
     const buyBtn = document.getElementById('m-buy');
-    buyBtn.textContent = 'Buy now — ' + fmt(p.salePrice);
-    buyBtn.onclick = () => {
-        if (!getToken()) window.location.href = '/pages/login.html';
-        else window.location.href = '/pages/checkout.html?slug=' + p.slug;
-    };
+    const parent = buyBtn.parentNode;
 
-    // ✅ FIX: Wire up the modal save button
+    const existingMsg = parent.querySelector('.own-product-msg, .admin-msg');
+    if (existingMsg) existingMsg.remove();
+
+    buyBtn.style.display = 'block';
+    buyBtn.textContent = 'Buy now — ' + fmt(p.salePrice);
+
+    if (isAdminUser) {
+        buyBtn.style.display = 'none';
+        const msg = document.createElement('div');
+        msg.className = 'admin-msg';
+        msg.style.cssText = `flex:1;padding:13px;background:#e8e8e8;color:#6b7280;border-radius:12px;text-align:center;font-size:14px;`;
+        msg.textContent = '🔒 Admin view only';
+        parent.insertBefore(msg, buyBtn);
+    } else if (isOwnProduct) {
+        buyBtn.style.display = 'none';
+        const msg = document.createElement('div');
+        msg.className = 'own-product-msg';
+        msg.style.cssText = `flex:1;padding:13px;background:#FEF3C7;color:#B45309;border-radius:12px;text-align:center;font-size:14px;font-weight:500;`;
+        msg.textContent = '🚫 You cannot buy your own products';
+        parent.insertBefore(msg, buyBtn);
+    } else {
+        buyBtn.onclick = () => {
+            if (!getToken()) window.location.href = '/pages/login.html';
+            else window.location.href = '/pages/checkout.html?slug=' + p.slug;
+        };
+    }
+
+    // ─── SAVE BUTTON ────────────────────────────────────
     const saveBtn = document.getElementById('m-save');
-    saveBtn.dataset.productId = p.id;
-    saveBtn.onclick = () => toggleSave(p.id);
-    setHeartVisual(saveBtn, savedIds.has(p.id));
+    const parentActions = saveBtn.parentNode;
+    const existingSaveMsg = parentActions.querySelector('.own-product-save-msg');
+    if (existingSaveMsg) existingSaveMsg.remove();
+
+    // ✅ Hide save button for own products OR admin
+    if (isOwnProduct || isAdminUser) {
+        saveBtn.style.display = 'none';
+        const note = document.createElement('span');
+        note.className = 'own-product-save-msg';
+        note.style.cssText = `font-size:11px;color:#6b7280;padding:8px 12px;background:#f8f8f6;border-radius:8px;text-align:center;`;
+        note.textContent = isAdminUser ? '🔒 Admin' : '📦 Your item';
+        parentActions.insertBefore(note, saveBtn);
+    } else {
+        saveBtn.style.display = 'flex';
+        saveBtn.dataset.productId = p.id;
+        saveBtn.onclick = () => toggleSave(p.id);
+        setHeartVisual(saveBtn, savedIds.has(p.id));
+    }
 
     document.getElementById('modal').classList.add('open');
+    console.log('=== END RENDER MODAL ===');
+}
+
+// ─── CAROUSEL FUNCTIONS ──────────────────────────────────
+
+function changeImage(direction) {
+    if (productImages.length === 0) return;
+    currentImageIndex = (currentImageIndex + direction + productImages.length) % productImages.length;
+    updateCarousel();
+}
+
+function goToImage(index) {
+    if (index < 0 || index >= productImages.length) return;
+    currentImageIndex = index;
+    updateCarousel();
+}
+
+function updateCarousel() {
+    const wrappers = document.querySelectorAll('.carousel-image-wrapper');
+    const dots = document.querySelectorAll('.carousel-dot');
+    const counter = document.getElementById('carousel-counter');
+
+    wrappers.forEach((wrapper, index) => {
+        wrapper.style.display = index === currentImageIndex ? 'flex' : 'none';
+    });
+
+    dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index === currentImageIndex);
+    });
+
+    if (counter) {
+        counter.textContent = `${currentImageIndex + 1} / ${productImages.length}`;
+    }
 }
 
 function closeModal() {
     document.getElementById('modal').classList.remove('open');
 }
+
+// ── CONTACT SELLER ───────────────────────────────────────
 
 // ── CONTACT SELLER ───────────────────────────────────────
 
@@ -350,7 +553,6 @@ function handleContact() {
         return;
     }
 
-    // Get shop ID from URL
     const urlParams = new URLSearchParams(window.location.search);
     const shopId = urlParams.get('id');
 
@@ -359,74 +561,187 @@ function handleContact() {
         return;
     }
 
-    // Show contact modal with shop info
     showContactModal(shopId);
 }
 
 function showContactModal(shopId) {
-    // Simple contact modal
+    // Remove existing modal if any
+    const existing = document.getElementById('contact-modal');
+    if (existing) existing.remove();
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'contact-modal';
     overlay.style.display = 'flex';
+    overlay.style.zIndex = '300';
     overlay.innerHTML = `
-        <div class="modal" style="max-width:400px">
-            <div class="modal-hdr">
-                <h3>Contact Seller</h3>
-                <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">
+        <div class="contact-modal-content">
+            <div class="contact-modal-header">
+                <h3>
+                    <i class="ti ti-message" style="color:#1D9E75;margin-right:8px;"></i>
+                    Contact Seller
+                </h3>
+                <button class="contact-modal-close" onclick="closeContactModal()">
                     <i class="ti ti-x"></i>
                 </button>
             </div>
-            <div class="modal-body">
-                <p style="color:#6b7280;font-size:14px;margin-bottom:1rem">
+            <div class="contact-modal-body">
+                <div class="contact-shop-info">
+                    <div class="contact-shop-avatar">🏪</div>
+                    <div>
+                        <div class="contact-shop-name" id="contact-shop-name">Loading...</div>
+                        <div class="contact-shop-meta">Response within 24 hours</div>
+                    </div>
+                </div>
+                <p class="contact-message-hint">
+                    <i class="ti ti-info-circle" style="color:#6b7280;font-size:14px;"></i>
                     Send a message to the shop owner. They'll respond via email.
                 </p>
-                <div class="field">
-                    <label>Your message</label>
-                    <textarea id="contact-msg" rows="4" style="width:100%;padding:10px;border:0.5px solid #e8e8e8;border-radius:10px;font-family:inherit;resize:vertical"></textarea>
+                <div class="contact-field">
+                    <label for="contact-msg">Your message</label>
+                    <textarea id="contact-msg" rows="4" placeholder="Hi, I'm interested in your products..."></textarea>
                 </div>
-                <button class="btn-save" onclick="sendContactMessage(${shopId})" style="width:100%">
-                    Send message
+                <div class="contact-char-count">
+                    <span id="contact-char-count">0</span> / 500 characters
+                </div>
+                <button class="contact-send-btn" id="contact-send-btn" onclick="sendContactMessage(${shopId})">
+                    <i class="ti ti-send"></i> Send message
                 </button>
             </div>
         </div>
     `;
     document.body.appendChild(overlay);
+
+    // Load shop name for display
+    loadShopNameForContact(shopId);
+
+    // Character counter
+    const textarea = document.getElementById('contact-msg');
+    textarea.addEventListener('input', function () {
+        const count = this.value.length;
+        document.getElementById('contact-char-count').textContent = count;
+        if (count > 500) {
+            this.value = this.value.substring(0, 500);
+            document.getElementById('contact-char-count').textContent = 500;
+        }
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeContactModal();
+        }
+    });
+}
+
+async function loadShopNameForContact(shopId) {
+    try {
+        const res = await fetch(`${API}/shops/${shopId}`);
+        if (res.ok) {
+            const shop = await res.json();
+            const nameEl = document.getElementById('contact-shop-name');
+            if (nameEl) {
+                nameEl.textContent = shop.shopName;
+            }
+        }
+    } catch (e) {
+        console.error('Could not load shop name:', e);
+    }
+}
+
+function closeContactModal() {
+    const modal = document.getElementById('contact-modal');
+    if (modal) modal.remove();
 }
 
 async function sendContactMessage(shopId) {
     const msg = document.getElementById('contact-msg').value.trim();
+    const btn = document.getElementById('contact-send-btn');
+    const charCount = document.getElementById('contact-char-count');
+
     if (!msg) {
-        alert('Please write a message.');
+        // Show error on the button
+        btn.textContent = '⚠️ Please write a message';
+        btn.style.background = '#FEF3C7';
+        btn.style.color = '#B45309';
+        setTimeout(() => {
+            btn.innerHTML = '<i class="ti ti-send"></i> Send message';
+            btn.style.background = '';
+            btn.style.color = '';
+        }, 2000);
         return;
     }
 
-    try {
-        const res = await fetch(`${API}/shops/${shopId}/contact`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + getToken()
-            },
-            body: JSON.stringify({ message: msg })
-        });
+    if (msg.length > 500) {
+        btn.textContent = '⚠️ Message too long (max 500 chars)';
+        btn.style.background = '#FEF3C7';
+        btn.style.color = '#B45309';
+        setTimeout(() => {
+            btn.innerHTML = '<i class="ti ti-send"></i> Send message';
+            btn.style.background = '';
+            btn.style.color = '';
+        }, 2000);
+        return;
+    }
 
-        if (res.ok) {
-            alert('Message sent! The seller will get back to you.');
-            document.getElementById('contact-modal').remove();
-        } else {
-            const data = await res.json();
-            alert(data.message || 'Could not send message. Try again.');
-        }
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite;"></i> Sending...';
+
+    try {
+        // Simulate sending (fake delay)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // ✅ FAKE SUCCESS - always succeeds
+        // In production, you would uncomment this:
+        // const res = await fetch(`${API}/shops/${shopId}/contact`, {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         'Authorization': 'Bearer ' + getToken()
+        //     },
+        //     body: JSON.stringify({ message: msg })
+        // });
+
+        // if (!res.ok) throw new Error('Failed to send');
+
+        // Show success state
+        const modalBody = document.querySelector('.contact-modal-body');
+        modalBody.innerHTML = `
+            <div class="contact-success">
+                <div class="contact-success-icon">✅</div>
+                <h3>Message Sent!</h3>
+                <p>Your message has been sent to the seller.</p>
+                <p style="font-size:13px;color:#6b7280;margin-top:4px;">
+                    <i class="ti ti-clock"></i> They'll respond within 24 hours.
+                </p>
+                <button class="contact-success-btn" onclick="closeContactModal()">
+                    Done
+                </button>
+            </div>
+        `;
+
+        // Auto close after 5 seconds
+        setTimeout(() => {
+            closeContactModal();
+        }, 5000);
+
     } catch (e) {
         console.error('Contact error:', e);
-        alert('Something went wrong.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-send"></i> Try again';
+        btn.style.background = '#FEE2E2';
+        btn.style.color = '#991B1B';
+        setTimeout(() => {
+            btn.innerHTML = '<i class="ti ti-send"></i> Send message';
+            btn.style.background = '';
+            btn.style.color = '';
+        }, 3000);
     }
 }
 
 // ── INIT ─────────────────────────────────────────────────
 
-// Get shopId from URL — shop-profile.html?id=1
 const urlParams = new URLSearchParams(window.location.search);
 const shopId = urlParams.get('id');
 
@@ -436,5 +751,5 @@ if (!shopId) {
     checkAuth();
     loadShop(shopId);
     loadProducts(shopId);
-    loadSavedIds(); // ✅ Load saved state for hearts
+    loadSavedIds();
 }

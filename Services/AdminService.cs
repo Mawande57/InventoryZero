@@ -190,7 +190,6 @@ namespace InventoryZeroAPI.Services
 
         public async Task<PagedResultDto<AdminUserDto>> GetUsersAsync(string? role, int page, int pageSize)
         {
-            // ✅ Exclude Admin
             var query = _context.Users
                 .Where(u => u.Role != "Admin")
                 .AsQueryable();
@@ -205,7 +204,6 @@ namespace InventoryZeroAPI.Services
                 .Take(pageSize)
                 .ToListAsync();
 
-            // ✅ Get shop counts in one query
             var userIds = users.Select(u => u.Id).ToList();
             var shopCounts = await _context.Shops
                 .Where(s => userIds.Contains(s.UserId))
@@ -218,14 +216,14 @@ namespace InventoryZeroAPI.Services
                 Id = u.Id,
                 FullName = u.FullName,
                 Email = u.Email,
-                Role = u.Role,  // "Buyer"
+                Role = u.Role,
                 IsActive = u.IsActive,
                 IsEmailVerified = u.IsEmailVerified,
                 CreatedAt = u.CreatedAt,
                 LastLoginAt = u.LastLoginAt,
                 TotalOrders = _context.Orders.Count(o => o.BuyerId == u.Id),
                 TotalSpent = _context.Orders.Where(o => o.BuyerId == u.Id && o.PaymentStatus == "Paid").Sum(o => o.TotalAmount),
-                TotalShops = shopCounts.ContainsKey(u.Id) ? shopCounts[u.Id] : 0  // ✅ Already exists!
+                TotalShops = shopCounts.ContainsKey(u.Id) ? shopCounts[u.Id] : 0
             }).ToList();
 
             return new PagedResultDto<AdminUserDto>
@@ -383,9 +381,9 @@ namespace InventoryZeroAPI.Services
                 Id = p.Id,
                 Amount = p.Amount,
                 Status = p.Status,
-                ShopName = p.Shop.ShopName,
-                ShopOwner = p.Shop.User.FullName,
-                OrderNumber = p.Order.OrderNumber,
+                ShopName = p.Shop?.ShopName ?? "Unknown Shop",
+                ShopOwner = p.Shop?.User?.FullName ?? "Unknown",
+                OrderNumber = p.Order?.OrderNumber ?? "N/A",
                 CreatedAt = p.CreatedAt,
                 ProcessedAt = p.ProcessedAt,
                 StripeTransferId = p.StripeTransferId,

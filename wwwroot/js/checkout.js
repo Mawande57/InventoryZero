@@ -40,6 +40,7 @@ function authHeaders() {
 function fmt(n) { return 'R' + Number(n).toLocaleString('en-ZA'); }
 
 // ── LOAD PRODUCT FROM URL SLUG ────────────────────────────
+// ── LOAD PRODUCT FROM URL SLUG ────────────────────────────
 async function loadProduct() {
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('slug');
@@ -88,18 +89,22 @@ async function loadProduct() {
 
         if (isOwnProduct) {
             console.log('🚫 User owns this product - blocking checkout');
-            document.getElementById('product-preview').innerHTML = `
-                <div style="background: #FEF3C7; padding: 20px; border-radius: 12px; text-align: center;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">🚫</div>
-                    <h3 style="color: #B45309; margin-bottom: 8px;">You cannot buy your own products</h3>
-                    <p style="color: #6b7280; font-size: 14px;">As a seller, you cannot purchase items from your own shop.</p>
-                    <button class="btn-buy" onclick="window.location.href='/pages/browse.html'" 
-                            style="margin-top: 16px; background: #1D9E75; color: #fff; border: none; padding: 10px 24px; border-radius: 10px; cursor: pointer;">
-                        Browse other deals
-                    </button>
-                </div>
-            `;
-            document.getElementById('checkout-form').style.display = 'none';
+            const preview = document.getElementById('product-preview');
+            if (preview) {
+                preview.innerHTML = `
+                    <div style="background: #FEF3C7; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">🚫</div>
+                        <h3 style="color: #B45309; margin-bottom: 8px;">You cannot buy your own products</h3>
+                        <p style="color: #6b7280; font-size: 14px;">As a seller, you cannot purchase items from your own shop.</p>
+                        <button class="btn-buy" onclick="window.location.href='/pages/browse.html'" 
+                                style="margin-top: 16px; background: #1D9E75; color: #fff; border: none; padding: 10px 24px; border-radius: 10px; cursor: pointer;">
+                            Browse other deals
+                        </button>
+                    </div>
+                `;
+            }
+            const form = document.getElementById('checkout-form');
+            if (form) form.style.display = 'none';
             console.log('=== END LOAD PRODUCT (BLOCKED) ===');
             return;
         }
@@ -107,28 +112,36 @@ async function loadProduct() {
         console.log('✅ User can buy this product - showing checkout');
         const remaining = product.remainingQuantity;
 
-        document.getElementById('product-preview').innerHTML = `
-            <div class="pp-img" style="background:${CAT_COLORS[product.categoryName] || '#f5f5f3'}">
-                ${EMOJIS[product.categoryName] || '📦'}
-            </div>
-            <div class="pp-info">
-                <div class="pp-cat">${product.categoryName || 'General'}</div>
-                <div class="pp-title">${product.title}</div>
-                <div class="pp-shop">
-                    <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
-                    ${product.shopName}${product.shopCity ? ', ' + product.shopCity : ''}
+        const preview = document.getElementById('product-preview');
+        if (preview) {
+            preview.innerHTML = `
+                <div class="pp-img" style="background:${CAT_COLORS[product.categoryName] || '#f5f5f3'}">
+                    ${EMOJIS[product.categoryName] || '📦'}
                 </div>
-                <div class="pp-pricing">
-                    <span class="pp-price">${fmt(product.salePrice)}</span>
-                    <span class="pp-orig">${fmt(product.originalPrice)}</span>
-                    <span class="pp-off">-${Math.round(product.discountPercentage)}% off</span>
+                <div class="pp-info">
+                    <div class="pp-cat">${product.categoryName || 'General'}</div>
+                    <div class="pp-title">${product.title}</div>
+                    <div class="pp-shop">
+                        <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
+                        ${product.shopName}${product.shopCity ? ', ' + product.shopCity : ''}
+                    </div>
+                    <div class="pp-pricing">
+                        <span class="pp-price">${fmt(product.salePrice)}</span>
+                        <span class="pp-orig">${fmt(product.originalPrice)}</span>
+                        <span class="pp-off">-${Math.round(product.discountPercentage)}% off</span>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
 
-        document.getElementById('qty-stock').textContent = remaining + ' available';
-        document.getElementById('qty-row').style.display = 'flex';
-        document.getElementById('checkout-form').style.display = 'block';
+        const qtyStock = document.getElementById('qty-stock');
+        if (qtyStock) qtyStock.textContent = remaining + ' available';
+
+        const qtyRow = document.getElementById('qty-row');
+        if (qtyRow) qtyRow.style.display = 'flex';
+
+        const form = document.getElementById('checkout-form');
+        if (form) form.style.display = 'block';
 
         updateSummary();
         console.log('=== END LOAD PRODUCT (SUCCESS) ===');
@@ -136,10 +149,22 @@ async function loadProduct() {
     } catch (e) {
         console.error('❌ Catch error:', e);
         console.log('❌ Product not found, showing error message');
-        document.getElementById('product-preview').innerHTML = `
-            <p style="color:#991B1B;font-size:13px">Product not found or no longer available.</p>
-        `;
-        document.getElementById('checkout-form').style.display = 'none';
+        const preview = document.getElementById('product-preview');
+        if (preview) {
+            preview.innerHTML = `
+                <div style="background: #FEE2E2; padding: 30px 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">🔍</div>
+                    <h3 style="color: #991B1B; margin-bottom: 8px;">Product Not Available</h3>
+                    <p style="color: #6b7280; font-size: 14px;">The product you're looking for is no longer available.</p>
+                    <button onclick="window.location.href='/pages/browse.html'" 
+                            style="margin-top: 16px; background: #1D9E75; color: #fff; border: none; padding: 10px 24px; border-radius: 10px; cursor: pointer;">
+                        Browse deals
+                    </button>
+                </div>
+            `;
+        }
+        const form = document.getElementById('checkout-form');
+        if (form) form.style.display = 'none';
     }
 }
 
@@ -233,7 +258,11 @@ async function placeOrder() {
 
     errEl.classList.remove('show');
 
-    if (!product) return;
+    if (!product) {
+        errEl.textContent = 'Product data is missing. Please try again.';
+        errEl.classList.add('show');
+        return;
+    }
 
     // Validate address
     if (!selectedAddressId && !useNewAddress) {
@@ -268,6 +297,9 @@ async function placeOrder() {
 
         if (selectedAddressId) {
             const addr = addresses.find(a => a.id === selectedAddressId);
+            if (!addr) {
+                throw new Error('Selected address not found.');
+            }
             body.savedAddressId = selectedAddressId;
             body.shippingAddressLine1 = addr.addressLine1;
             body.shippingCity = addr.city;
@@ -282,20 +314,25 @@ async function placeOrder() {
             body.shippingPhoneNumber = document.getElementById('new-phone').value.trim();
         }
 
+        // 🔍 DEBUG: Log the request body
+        console.log('📦 Order request body:', JSON.stringify(body, null, 2));
+
         const res = await fetch(`${API}/orders`, {
             method: 'POST',
             headers: authHeaders(),
             body: JSON.stringify(body)
         });
 
+        // 🔍 DEBUG: Log the response
+        console.log('📡 Response status:', res.status);
         const data = await res.json();
+        console.log('📡 Response data:', data);
 
         if (!res.ok) {
             // ✅ Handle out of stock error
             if (data.message && data.message.includes('Only')) {
                 errEl.textContent = 'Sorry! ' + data.message;
                 errEl.classList.add('show');
-
                 // Refresh product to show updated stock
                 await loadProduct();
                 return;
@@ -309,6 +346,7 @@ async function placeOrder() {
         window.location.href = `/pages/payment.html?orderId=${data.id}&orderNumber=${data.orderNumber}&amount=${data.totalAmount}`;
 
     } catch (e) {
+        console.error('❌ Place order error:', e);
         errEl.textContent = 'Something went wrong. Please try again.';
         errEl.classList.add('show');
     } finally {

@@ -85,7 +85,6 @@ function showAdminBanner() {
 
 function hideBuyButtonsForAdmin() {
     if (!isAdmin()) return;
-
     document.querySelectorAll('.btn-search').forEach(btn => {
         btn.style.display = 'none';
     });
@@ -112,7 +111,6 @@ function checkAuth() {
             dashboardLinks += `<button class="btn-solid" onclick="window.location.href='/pages/seller-dashboard.html'">Seller dashboard</button>`;
         } else {
             dashboardLinks += `<button class="btn-solid" onclick="window.location.href='/pages/create-shop.html'">Become a seller</button>`;
-
         }
     }
 
@@ -195,9 +193,12 @@ function removeTag(key) {
 
 // ── LOAD CATEGORIES ──────────────────────────────────────
 async function loadCategories() {
+    console.log('📡 Loading categories...');
     try {
         const res = await fetch(`${API}/categories`);
+        console.log('📡 Categories response status:', res.status);
         const data = await res.json();
+        console.log('📡 Categories data:', data.length, 'categories');
         const grid = document.getElementById('filter-cats');
 
         data.forEach(c => {
@@ -214,12 +215,13 @@ async function loadCategories() {
             grid.appendChild(el);
         });
     } catch (e) {
-        console.error('Could not load categories', e);
+        console.error('❌ Could not load categories:', e);
     }
 }
 
 // --LOAD DEALS -----------------------------
 async function loadDeals() {
+    console.log('📡 Loading deals...');
     document.getElementById('deals-grid').innerHTML = '<div class="deal-skeleton"></div>'.repeat(6);
 
     const params = new URLSearchParams();
@@ -235,7 +237,9 @@ async function loadDeals() {
 
     try {
         const res = await fetch(`${API}/products?${params}`);
+        console.log('📡 Deals response status:', res.status);
         const data = await res.json();
+        console.log('📡 Deals data:', data.totalCount, 'products');
 
         document.getElementById('result-count').textContent = data.totalCount.toLocaleString() + ' deals';
         document.getElementById('showing-count').textContent = data.items.length + ' of ' + data.totalCount;
@@ -258,7 +262,6 @@ async function loadDeals() {
             const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
             const hideHeart = isOwnProduct || isAdminUser;
 
-            // ✅ Use image if available
             const imageHtml = p.mainImageUrl
                 ? `<img src="${p.mainImageUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;" />`
                 : EMOJIS[p.categoryName] || '📦';
@@ -313,6 +316,7 @@ async function loadDeals() {
         applySavedState();
 
     } catch (e) {
+        console.error('❌ Could not load deals:', e);
         document.getElementById('deals-grid').innerHTML = `
             <p style="font-size:13px;color:#666;padding:1rem;grid-column:1/-1">
                 Could not load deals. Make sure the API is running.
@@ -355,20 +359,45 @@ function goPage(p) {
 }
 
 // ── MODAL ────────────────────────────────────────────────
-// ── IMAGE CAROUSEL STATE ──────────────────────────────
 let currentImageIndex = 0;
 let productImages = [];
 
-function openModal(p) {
+function openModal(productData) {
     console.log('=== OPEN MODAL DEBUG ===');
+    console.log('📦 Product data received:', productData);
+
+    if (!productData.imageUrls) {
+        console.log('🔍 No imageUrls found, fetching full product details...');
+        fetch(`${API}/products/${productData.slug}`)
+            .then(res => {
+                console.log('📡 Fetch response status:', res.status);
+                if (!res.ok) throw new Error('Product not found');
+                return res.json();
+            })
+            .then(fullProduct => {
+                console.log('✅ Full product fetched:', fullProduct);
+                renderModal(fullProduct);
+            })
+            .catch(err => {
+                console.error('❌ Error fetching full product:', err);
+                renderModal(productData);
+            });
+        return;
+    }
+
+    renderModal(productData);
+}
+
+function renderModal(p) {
+    console.log('🎨 Rendering modal with:', p);
+
     const user = getUser();
     const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
     const isAdminUser = isAdmin();
 
-    // ─── SETUP CAROUSEL ──────────────────────────────────
-    // Get images from product
     productImages = p.imageUrls || [];
     currentImageIndex = 0;
+    console.log('📸 Images for carousel:', productImages.length, 'images');
 
     const carouselSlide = document.getElementById('m-carousel-slide');
     const dotsContainer = document.getElementById('carousel-dots');
@@ -376,15 +405,14 @@ function openModal(p) {
     const prevBtn = document.getElementById('carousel-prev');
     const nextBtn = document.getElementById('carousel-next');
 
-    // Render images in carousel
-    if (productImages.length > 0) {
+    if (productImages && productImages.length > 0) {
+        console.log('✅ Rendering', productImages.length, 'images');
         carouselSlide.innerHTML = productImages.map((url, index) => `
             <div class="carousel-image-wrapper" data-index="${index}" style="display:${index === 0 ? 'flex' : 'none'};width:100%;height:100%;align-items:center;justify-content:center;">
-                <img src="${url}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" />
+                <img src="${url}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'"/>
             </div>
         `).join('');
 
-        // Dots
         dotsContainer.innerHTML = productImages.map((_, index) => `
             <span class="carousel-dot ${index === 0 ? 'active' : ''}" onclick="goToImage(${index})"></span>
         `).join('');
@@ -393,9 +421,9 @@ function openModal(p) {
         prevBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
         nextBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
     } else {
-        // No images - show emoji
+        console.log('❌ No images, showing emoji');
         carouselSlide.innerHTML = `
-            <div class="emoji-placeholder">${EMOJIS[p.categoryName] || '📦'}</div>
+            <div class="emoji-placeholder" style="font-size:72px;">${EMOJIS[p.categoryName] || '📦'}</div>
         `;
         dotsContainer.innerHTML = '';
         counter.textContent = '';
@@ -403,7 +431,6 @@ function openModal(p) {
         nextBtn.style.display = 'none';
     }
 
-    // ─── REST OF MODAL ──────────────────────────────────
     const bg = CAT_COLORS[p.categoryName] || '#f5f5f3';
     const modalHero = document.getElementById('m-img');
     modalHero.style.background = bg;
@@ -428,7 +455,6 @@ function openModal(p) {
     const buyBtn = document.getElementById('m-buy');
     const parent = buyBtn.parentNode;
 
-    // Remove existing messages
     const existingMsg = parent.querySelector('.own-product-msg, .admin-msg');
     if (existingMsg) existingMsg.remove();
 
@@ -456,7 +482,6 @@ function openModal(p) {
         };
     }
 
-    // ─── SAVE BUTTON ────────────────────────────────────
     const saveBtn = document.getElementById('m-save');
     const parentActions = saveBtn.parentNode;
     const existingSaveMsg = parentActions.querySelector('.own-product-save-msg');
@@ -477,14 +502,13 @@ function openModal(p) {
     }
 
     document.getElementById('modal').classList.add('open');
-    console.log('=== END OPEN MODAL ===');
+    console.log('=== END RENDER MODAL ===');
 }
 
 // ─── CAROUSEL FUNCTIONS ──────────────────────────────────
 
 function changeImage(direction) {
     if (productImages.length === 0) return;
-
     currentImageIndex = (currentImageIndex + direction + productImages.length) % productImages.length;
     updateCarousel();
 }
@@ -513,9 +537,18 @@ function updateCarousel() {
     }
 }
 
+// Close modal when clicking the overlay (background)
+function closeModalOverlay(event) {
+    if (event && event.target && event.target.id === 'modal') {
+        document.getElementById('modal').classList.remove('open');
+    }
+}
+
+// Close modal from the X button
 function closeModal() {
     document.getElementById('modal').classList.remove('open');
 }
+
 
 // ── HEART VISUAL HELPERS ─────────────────────────────────
 function setHeartVisual(btn, saved) {
@@ -612,16 +645,19 @@ function showToast(message) {
 
 // ── LOAD STATS ───────────────────────────────────────────
 async function loadStats() {
+    console.log('📡 Loading stats...');
     try {
         const res = await fetch(`${API}/products?pageSize=1`);
+        console.log('📡 Stats response status:', res.status);
         const data = await res.json();
         document.getElementById('result-count').textContent = data.totalCount + ' deals';
     } catch (e) {
-        console.log('Could not load stats:', e);
+        console.error('Could not load stats:', e);
     }
 }
 
 // ── INIT ─────────────────────────────────────────────────
+console.log('🚀 Initializing browse page...');
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('category')) state.categorySlug = urlParams.get('category');
 if (urlParams.get('sort')) state.sortBy = urlParams.get('sort');

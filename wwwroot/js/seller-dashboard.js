@@ -409,29 +409,50 @@ async function showAddProductModal() {
 }
 
 async function editProduct(id) {
+    console.log('📝 Editing product ID:', id);
+
     try {
-        const res = await fetch(`${API}/seller/products/${id}`, { headers: authHeaders() });
+        const res = await fetch(`${API}/seller/products/${id}`, {
+            headers: authHeaders()
+        });
+
+        console.log('📡 Response status:', res.status);
+
+        if (!res.ok) {
+            const error = await res.json();
+            console.error('❌ Error response:', error);
+            alert('Could not load product: ' + (error.message || 'Unknown error'));
+            return;
+        }
+
         const p = await res.json();
+        console.log('✅ Product loaded:', p);
+
+        // ✅ Populate form fields
+        document.getElementById('prod-title').value = p.title || '';
+        document.getElementById('prod-desc').value = p.description || '';
+        document.getElementById('prod-original').value = p.originalPrice || '';
+        document.getElementById('prod-sale').value = p.salePrice || '';
+        document.getElementById('prod-qty').value = p.quantity || '';
+        document.getElementById('prod-condition').value = p.condition || 'New';
+        document.getElementById('prod-urgent').checked = p.isUrgent || false;
 
         editingProductId = id;
-        document.getElementById('prod-title').value = p.title;
-        document.getElementById('prod-desc').value = p.description || '';
-        document.getElementById('prod-original').value = p.originalPrice;
-        document.getElementById('prod-sale').value = p.salePrice;
-        document.getElementById('prod-qty').value = p.quantity;
-        document.getElementById('prod-condition').value = p.condition;
-        document.getElementById('prod-urgent').checked = p.isUrgent;
         document.getElementById('prod-err').classList.remove('show');
         document.getElementById('prod-save-btn').textContent = 'Update Product';
         document.querySelector('#add-product-modal .modal-hdr h3').textContent = 'Edit Product';
+
+        // Clear old images preview
+        document.getElementById('image-preview').innerHTML = '';
+        document.getElementById('prod-images').value = '';
 
         await populateShopSelect(p.shopId);
         await populateCategorySelect(p.categoryId);
         showModal('add-product-modal');
 
     } catch (e) {
-        console.error('Edit error:', e);
-        alert('Could not load product.');
+        console.error('❌ Edit error:', e);
+        alert('Could not load product: ' + e.message);
     }
 }
 
@@ -494,11 +515,11 @@ async function populateCategorySelect(selectedId) {
         console.error('Category select error:', e);
     }
 }
-
 async function saveProduct() {
     const errEl = document.getElementById('prod-err');
     const btn = document.getElementById('prod-save-btn');
 
+    // ─── GET VALUES ─────────────────────────────────────
     const title = document.getElementById('prod-title').value.trim();
     const description = document.getElementById('prod-desc').value.trim();
     const originalPrice = parseFloat(document.getElementById('prod-original').value);
@@ -508,11 +529,10 @@ async function saveProduct() {
     const shopId = parseInt(document.getElementById('prod-shop').value);
     const categoryId = document.getElementById('prod-category').value ? parseInt(document.getElementById('prod-category').value) : null;
     const isUrgent = document.getElementById('prod-urgent').checked;
-
     const imageInput = document.getElementById('prod-images');
     const images = imageInput.files;
 
-    console.log('🔍 Form data:', {
+    console.log('🔍 Form data being sent:', {
         title,
         description,
         originalPrice,
@@ -522,9 +542,11 @@ async function saveProduct() {
         shopId,
         categoryId,
         isUrgent,
-        imageCount: images.length
+        imageCount: images.length,
+        editingProductId
     });
 
+    // ─── VALIDATION ─────────────────────────────────────
     if (!title || !originalPrice || !salePrice || !quantity || !shopId) {
         errEl.textContent = 'Please fill in all required fields.';
         errEl.classList.add('show');
@@ -537,6 +559,7 @@ async function saveProduct() {
         return;
     }
 
+    // ─── BUILD FORM DATA ───────────────────────────────
     errEl.classList.remove('show');
     btn.disabled = true;
     btn.textContent = 'Saving...';
@@ -544,13 +567,13 @@ async function saveProduct() {
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description || '');
-    formData.append('originalPrice', originalPrice);
-    formData.append('salePrice', salePrice);
-    formData.append('quantity', quantity);
+    formData.append('originalPrice', originalPrice.toString());
+    formData.append('salePrice', salePrice.toString());
+    formData.append('quantity', quantity.toString());
     formData.append('condition', condition);
-    formData.append('shopId', shopId);
-    if (categoryId) formData.append('categoryId', categoryId);
-    formData.append('isUrgent', isUrgent);
+    formData.append('shopId', shopId.toString());
+    if (categoryId) formData.append('categoryId', categoryId.toString());
+    formData.append('isUrgent', isUrgent ? 'true' : 'false');
 
     // Append images
     for (let i = 0; i < images.length; i++) {
@@ -558,21 +581,23 @@ async function saveProduct() {
         formData.append('images', images[i]);
     }
 
+    // ─── LOG FORM DATA ENTRIES ─────────────────────────
+    console.log('📦 FormData entries:');
+    for (let pair of formData.entries()) {
+        const value = pair[1] instanceof File ? `[File: ${pair[1].name}]` : pair[1];
+        console.log('  ', pair[0], '=', value);
+    }
+
     const url = editingProductId ? `${API}/seller/products/${editingProductId}` : `${API}/seller/products`;
     const method = editingProductId ? 'PUT' : 'POST';
 
     console.log(`📡 Sending ${method} request to:`, url);
-    console.log('📦 FormData entries:');
-    for (let pair of formData.entries()) {
-        console.log('  ', pair[0], pair[1] instanceof File ? `[File: ${pair[1].name}]` : pair[1]);
-    }
 
     try {
         const res = await fetch(url, {
             method: method,
             headers: {
                 'Authorization': 'Bearer ' + getToken()
-                // ✅ DO NOT set Content-Type - browser handles it
             },
             body: formData
         });
@@ -580,19 +605,28 @@ async function saveProduct() {
         console.log('📡 Response status:', res.status);
         console.log('📡 Response headers:', [...res.headers.entries()]);
 
-        if (!res.ok) {
-            const err = await res.json();
-            console.log('❌ Error response:', err);
-            // Show alert for debugging
-            alert(`Error ${res.status}: ${err.message || 'Failed to save'}`);
-            throw new Error(err.message || 'Failed to save');
+        // ✅ Try to get response text first
+        const responseText = await res.text();
+        console.log('📡 Raw response:', responseText);
+
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('❌ Failed to parse JSON:', e);
+            data = { message: responseText || 'Unknown response' };
         }
 
-        const result = await res.json();
-        console.log('✅ Success:', result);
+        if (!res.ok) {
+            console.error('❌ Error response:', data);
+            alert(`Error ${res.status}: ${data.message || 'Failed to save'}`);
+            throw new Error(data.message || 'Failed to save');
+        }
+
+        console.log('✅ Success:', data);
         alert('✅ Product saved successfully!');
 
-        // Clear image preview
+        // ─── CLEANUP ──────────────────────────────────────
         document.getElementById('image-preview').innerHTML = '';
         document.getElementById('prod-images').value = '';
         selectedFiles = [];

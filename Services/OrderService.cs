@@ -16,12 +16,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task<OrderDetailDto> PlaceOrderAsync(int buyerId, PlaceOrderDto dto)
         {
-            // ✅ Lock to prevent race conditions
             await _stockLock.WaitAsync();
 
             try
             {
-                // 1. Get the product with shop info
+                // 1. Get the product
                 var product = await _context.Products
                     .Include(p => p.Shop)
                     .Include(p => p.ProductImages)
@@ -33,15 +32,23 @@ namespace InventoryZeroAPI.Services
                 if (product == null)
                     throw new Exception("Product not found or no longer available.");
 
-                if (product.Shop.UserId == buyerId)
+                // Get shop explicitly
+                var shop = await _context.Shops
+                    .FirstOrDefaultAsync(s => s.Id == product.ShopId);
+
+                if (shop == null)
+                    throw new Exception("Shop not found.");
+
+                // 2. Check if buyer owns the shop
+                if (shop.UserId == buyerId)
                     throw new Exception("You cannot purchase your own products.");
 
-                // 2. Check stock - ✅ ATOMIC check inside lock
+                // 3. Check stock
                 var remaining = product.Quantity - product.SoldQuantity;
                 if (dto.Quantity > remaining)
                     throw new Exception($"Only {remaining} units available.");
 
-                // 3. If buyer provided a saved address ID use that
+                // 4. Get shipping address
                 string addressLine1 = dto.ShippingAddressLine1;
                 string? addressLine2 = dto.ShippingAddressLine2;
                 string city = dto.ShippingCity;
@@ -67,23 +74,22 @@ namespace InventoryZeroAPI.Services
                     }
                 }
 
-                // 4. Calculate amounts
+                // 5. Calculate amounts
                 var unitPrice = product.SalePrice;
                 var subtotal = unitPrice * dto.Quantity;
                 var shippingCost = 0m;
                 var taxAmount = 0m;
                 var totalAmount = subtotal + shippingCost + taxAmount;
 
-                // 5. Calculate platform fee and seller payout
-                var commissionRate = product.Shop.CommissionRate / 100;
+                var commissionRate = shop.CommissionRate / 100;
                 var platformFee = Math.Round(totalAmount * commissionRate, 2);
                 var sellerPayout = totalAmount - platformFee;
 
-                // 6. Generate unique order number
+                // 6. Generate order number
                 var orderNumber = "IZ-" + DateTime.Now.ToString("yyyyMMdd") +
                                   "-" + Guid.NewGuid().ToString("N")[..6].ToUpper();
 
-                // 7. Create the order
+                // 7. Create order
                 var order = new Order
                 {
                     OrderNumber = orderNumber,
@@ -125,25 +131,14 @@ namespace InventoryZeroAPI.Services
 
                 _context.OrderItems.Add(orderItem);
 
-                // 9. ✅ Update product sold quantity (ATOMIC - inside lock)
-                product.SoldQuantity += dto.Quantity;
-                product.UpdatedAt = DateTime.Now;
+                // ✅ FIX: FIRST Save the order to generate the ID
+                await _context.SaveChangesAsync();
 
-                // ✅ If out of stock, update status
-                if (product.Quantity - product.SoldQuantity <= 0)
-                {
-                    product.Status = "Out of Stock";
-                }
-
-                // 10. Update shop total sales
-                product.Shop.TotalSales += dto.Quantity;
-                product.Shop.TotalRevenue += sellerPayout;
-
-                // 11. Create a pending payout record for the seller
+                // Now that order has an ID, we can create the payout
                 var payout = new Payout
                 {
                     ShopId = product.ShopId,
-                    OrderId = order.Id,
+                    OrderId = order.Id, // Now order.Id has a value
                     Amount = sellerPayout,
                     Status = "Pending",
                     CreatedAt = DateTime.Now
@@ -151,7 +146,22 @@ namespace InventoryZeroAPI.Services
 
                 _context.Payouts.Add(payout);
 
-                // ✅ Save all changes atomically
+                // 9. Update product sold quantity
+                product.SoldQuantity += dto.Quantity;
+                product.UpdatedAt = DateTime.Now;
+
+                if (product.Quantity - product.SoldQuantity <= 0)
+                {
+                    product.Status = "Out of Stock";
+                }
+
+                
+                
+
+                shop.TotalSales += dto.Quantity;
+                shop.TotalRevenue += sellerPayout;
+
+                // ✅ Save the rest of the changes
                 await _context.SaveChangesAsync();
 
                 return await GetOrderDetailAsync(order.Id, buyerId)
@@ -159,7 +169,6 @@ namespace InventoryZeroAPI.Services
             }
             finally
             {
-                // ✅ Always release the lock
                 _stockLock.Release();
             }
         }

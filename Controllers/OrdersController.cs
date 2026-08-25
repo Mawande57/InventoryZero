@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using InventoryZeroAPI.DTOs.Orders;
 using InventoryZeroAPI.Services;
-
+using Microsoft.EntityFrameworkCore;
 namespace InventoryZeroAPI.Controllers
 {
     [ApiController]
@@ -21,7 +21,6 @@ namespace InventoryZeroAPI.Controllers
         private int GetUserId() =>
             int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-        // POST api/orders
         [HttpPost]
         public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderDto dto)
         {
@@ -30,8 +29,17 @@ namespace InventoryZeroAPI.Controllers
                 var result = await _orderService.PlaceOrderAsync(GetUserId(), dto);
                 return Ok(result);
             }
+            catch (DbUpdateException dbEx) // Catch database specific errors
+            {
+                // Log the inner exception
+                var innerMessage = dbEx.InnerException?.Message ?? dbEx.Message;
+                Console.WriteLine($"🔴 DB Error: {innerMessage}");
+                return BadRequest(new { message = $"Database error: {innerMessage}" });
+            }
             catch (Exception ex)
             {
+                Console.WriteLine($"🔴 Error: {ex.Message}");
+                Console.WriteLine($"🔴 StackTrace: {ex.StackTrace}");
                 return BadRequest(new { message = ex.Message });
             }
         }

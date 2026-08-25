@@ -14,7 +14,8 @@ namespace InventoryZeroAPI.Services
         Task CancelOrderAsync(int orderId, int userId);
         Task<List<ProductCardDto>> GetProductsAsync(int userId);
         Task<object> CreateProductAsync(int userId, CreateProductDto dto);
-        Task UpdateProductAsync(int productId, int userId, CreateProductDto dto);
+        Task<object> GetProductByIdAsync(int productId, int userId);
+        Task<object> UpdateProductAsync(int productId, int userId, CreateProductDto dto);
         Task DeleteProductAsync(int productId, int userId);
         Task<List<ShopProfileDto>> GetShopsAsync(int userId);
         Task<List<ShopProfileDto>> GetVerifiedShopsAsync(int userId);

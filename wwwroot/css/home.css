@@ -1095,3 +1095,30 @@ button {
     border-radius: 999px;
     border: 0.5px solid #e8e8e8;
 }
+/* ── MODAL CLOSE BUTTON ────────────────────────────────── */
+.modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.4);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer; /* ✅ This makes the cursor change to pointer */
+    color: #fff;
+    font-size: 16px;
+    transition: background 0.15s;
+    z-index: 10;
+}
+
+    .modal-close:hover {
+        background: rgba(0,0,0,0.7);
+    }
+
+    .modal-close i {
+        font-size: 18px;
+    }

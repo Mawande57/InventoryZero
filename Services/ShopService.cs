@@ -80,6 +80,7 @@ namespace InventoryZeroAPI.Services
                 ListingEndDate = p.ListingEndDate,
                 Status = p.Status,
                 ShopName = p.Shop.ShopName,
+                ShopOwnerId = p.Shop.UserId,
                 ShopCity = p.Shop.City,
                 CategoryName = p.Category?.Name,
                 MainImageUrl = p.ProductImages

@@ -48,10 +48,8 @@ public partial class Shop
     public decimal CommissionRate { get; set; }
 
     public int PayoutDelayDays { get; set; }
-
-    public int TotalSales { get; set; }
-
-    public decimal TotalRevenue { get; set; }
+    public int TotalSales { get; set; } = 0;
+    public decimal TotalRevenue { get; set; } = 0;
 
     public DateTime CreatedAt { get; set; }
 

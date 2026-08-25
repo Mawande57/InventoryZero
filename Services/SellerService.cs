@@ -130,6 +130,56 @@ namespace InventoryZeroAPI.Services
         {
             await UpdateOrderStatusAsync(orderId, userId, "Cancelled", null);
         }
+        // Services/SellerService.cs - Add this method
+
+        public async Task<object> GetProductByIdAsync(int productId, int userId)
+        {
+            var product = await _context.Products
+                .Include(p => p.Shop)
+                .Include(p => p.Category)
+                .Include(p => p.ProductImages)
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            if (product == null)
+                throw new Exception("Product not found.");
+
+            // Check if user owns this product
+            if (product.Shop.UserId != userId)
+                throw new Exception("You don't have permission to view this product.");
+
+            return new
+            {
+                product.Id,
+                product.Title,
+                product.Description,
+                product.OriginalPrice,
+                product.SalePrice,
+                product.Quantity,
+                product.Condition,
+                product.IsUrgent,
+                product.ShopId,
+                CategoryId = product.CategoryId,
+                product.Slug,
+                product.Status,
+                product.ListingEndDate,
+                product.CreatedAt,
+                product.UpdatedAt,
+                product.SoldQuantity,
+                product.DiscountPercentage,
+                product.Saves,
+                product.Views,
+                // Include images
+                Images = product.ProductImages.Select(i => new
+                {
+                    i.Id,
+                    i.ImageUrl,
+                    i.IsMain,
+                    i.SortOrder
+                }),
+                ShopName = product.Shop.ShopName,
+                CategoryName = product.Category?.Name
+            };
+        }
 
         public async Task<List<ProductCardDto>> GetProductsAsync(int userId)
         {
@@ -239,18 +289,68 @@ namespace InventoryZeroAPI.Services
         }
 
         // Also update UpdateProductAsync for editing images
-        public async Task UpdateProductAsync(int productId, int userId, CreateProductDto dto)
+        public async Task<object> UpdateProductAsync(int productId, int userId, CreateProductDto dto)
         {
+            Console.WriteLine("========================================");
+            Console.WriteLine($"🔍 UPDATE PRODUCT STARTED");
+            Console.WriteLine($"📌 ProductId: {productId}");
+            Console.WriteLine($"👤 UserId: {userId}");
+            Console.WriteLine($"📦 New Values from DTO:");
+            Console.WriteLine($"   - Title: {dto.Title}");
+            Console.WriteLine($"   - Description: {dto.Description}");
+            Console.WriteLine($"   - OriginalPrice: {dto.OriginalPrice}");
+            Console.WriteLine($"   - SalePrice: {dto.SalePrice}");
+            Console.WriteLine($"   - Quantity: {dto.Quantity}");
+            Console.WriteLine($"   - Condition: {dto.Condition}");
+            Console.WriteLine($"   - IsUrgent: {dto.IsUrgent}");
+            Console.WriteLine($"   - ShopId: {dto.ShopId}");
+            Console.WriteLine($"   - CategoryId: {dto.CategoryId}");
+            Console.WriteLine($"   - Images Count: {dto.Images?.Count ?? 0}");
+            Console.WriteLine("========================================");
+
+            // ─── GET PRODUCT ─────────────────────────────────────
             var product = await _context.Products
                 .Include(p => p.Shop)
                 .Include(p => p.ProductImages)
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)
+            {
+                Console.WriteLine($"❌ ERROR: Product {productId} not found in database!");
                 throw new Exception("Product not found.");
+            }
 
-            if (product.Shop.UserId != userId)
+            Console.WriteLine($"✅ Found product in database:");
+            Console.WriteLine($"   - Current Title: {product.Title}");
+            Console.WriteLine($"   - Current OriginalPrice: {product.OriginalPrice}");
+            Console.WriteLine($"   - Current SalePrice: {product.SalePrice}");
+            Console.WriteLine($"   - Current Quantity: {product.Quantity}");
+            Console.WriteLine($"   - Current Condition: {product.Condition}");
+            Console.WriteLine($"   - Current IsUrgent: {product.IsUrgent}");
+            Console.WriteLine($"   - Current ShopId: {product.ShopId}");
+            Console.WriteLine($"   - Current CategoryId: {product.CategoryId}");
+            Console.WriteLine($"   - Current Images: {product.ProductImages.Count}");
+            Console.WriteLine($"   - Shop UserId: {product.Shop?.UserId}");
+
+            // ─── CHECK PERMISSION ──────────────────────────────
+            if (product.Shop == null || product.Shop.UserId != userId)
+            {
+                Console.WriteLine($"❌ ERROR: User {userId} doesn't own this product! Shop.UserId: {product.Shop?.UserId}");
                 throw new Exception("You don't have permission to edit this product.");
+            }
+
+            Console.WriteLine($"✅ Permission check passed - User owns this product");
+
+            // ─── UPDATE PRODUCT ──────────────────────────────────
+            Console.WriteLine("📝 Updating product fields...");
+
+            var oldTitle = product.Title;
+            var oldOriginalPrice = product.OriginalPrice;
+            var oldSalePrice = product.SalePrice;
+            var oldQuantity = product.Quantity;
+            var oldCondition = product.Condition;
+            var oldIsUrgent = product.IsUrgent;
+            var oldCategoryId = product.CategoryId;
 
             product.Title = dto.Title;
             product.Description = dto.Description;
@@ -263,21 +363,52 @@ namespace InventoryZeroAPI.Services
             product.CategoryId = dto.CategoryId;
             product.UpdatedAt = DateTime.Now;
 
-            // ✅ Handle new images
+            Console.WriteLine("📊 Field changes:");
+            Console.WriteLine($"   - Title: '{oldTitle}' → '{product.Title}'");
+            Console.WriteLine($"   - OriginalPrice: {oldOriginalPrice} → {product.OriginalPrice}");
+            Console.WriteLine($"   - SalePrice: {oldSalePrice} → {product.SalePrice}");
+            Console.WriteLine($"   - Quantity: {oldQuantity} → {product.Quantity}");
+            Console.WriteLine($"   - Condition: '{oldCondition}' → '{product.Condition}'");
+            Console.WriteLine($"   - IsUrgent: {oldIsUrgent} → {product.IsUrgent}");
+            Console.WriteLine($"   - CategoryId: {oldCategoryId} → {product.CategoryId}");
+            Console.WriteLine($"   - DiscountPercentage: {product.DiscountPercentage}%");
+
+            // ─── HANDLE IMAGES ──────────────────────────────────
             if (dto.Images != null && dto.Images.Any())
             {
+                Console.WriteLine($"📷 Processing {dto.Images.Count} new images...");
+
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
                 if (!Directory.Exists(uploadsFolder))
+                {
+                    Console.WriteLine($"📁 Creating uploads folder: {uploadsFolder}");
                     Directory.CreateDirectory(uploadsFolder);
+                }
 
-                // Keep existing images count for sort order
-                var existingCount = product.ProductImages.Count;
+                // Delete existing images
+                var existingImages = product.ProductImages.ToList();
+                Console.WriteLine($"🗑️ Deleting {existingImages.Count} existing images...");
 
+                foreach (var img in existingImages)
+                {
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", img.ImageUrl.TrimStart('/'));
+                    if (File.Exists(filePath))
+                    {
+                        Console.WriteLine($"   - Deleting file: {filePath}");
+                        File.Delete(filePath);
+                    }
+                    _context.ProductImages.Remove(img);
+                }
+
+                // Add new images
+                Console.WriteLine($"📤 Adding {dto.Images.Count} new images...");
                 for (int i = 0; i < dto.Images.Count; i++)
                 {
                     var file = dto.Images[i];
                     var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
                     var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    Console.WriteLine($"   - Saving image {i + 1}: {file.FileName} → {uniqueFileName}");
 
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
@@ -290,14 +421,94 @@ namespace InventoryZeroAPI.Services
                     {
                         ProductId = product.Id,
                         ImageUrl = imageUrl,
-                        IsMain = existingCount == 0 && i == 0,
-                        SortOrder = existingCount + i,
+                        IsMain = i == 0,
+                        SortOrder = i,
                         CreatedAt = DateTime.Now
                     });
                 }
-
-                await _context.SaveChangesAsync();
             }
+            else
+            {
+                Console.WriteLine("📷 No new images to process - keeping existing images");
+            }
+
+            // ─── SAVE CHANGES ────────────────────────────────────
+            Console.WriteLine("💾 Saving changes to database...");
+
+            // Force EF to track changes
+            _context.Entry(product).State = EntityState.Modified;
+
+            var saveResult = await _context.SaveChangesAsync();
+            Console.WriteLine($"✅ SaveChangesAsync returned: {saveResult} entities saved");
+
+            if (saveResult == 0)
+            {
+                Console.WriteLine("⚠️ WARNING: No entities were saved! Changes may not have been applied.");
+                throw new Exception("Failed to save product changes.");
+            }
+
+            // ─── VERIFY UPDATE ───────────────────────────────────
+            Console.WriteLine("🔍 Verifying update by fetching product again...");
+            var verifiedProduct = await _context.Products
+                .Include(p => p.Shop)
+                .Include(p => p.Category)
+                .Include(p => p.ProductImages)
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            Console.WriteLine("✅ Verification result:");
+            Console.WriteLine($"   - Title: {verifiedProduct?.Title}");
+            Console.WriteLine($"   - OriginalPrice: {verifiedProduct?.OriginalPrice}");
+            Console.WriteLine($"   - SalePrice: {verifiedProduct?.SalePrice}");
+            Console.WriteLine($"   - Quantity: {verifiedProduct?.Quantity}");
+            Console.WriteLine($"   - Condition: {verifiedProduct?.Condition}");
+            Console.WriteLine($"   - Images: {verifiedProduct?.ProductImages.Count}");
+
+            // ─── COMPARE BEFORE/AFTER ──────────────────────────
+            var changesDetected =
+                oldTitle != verifiedProduct?.Title ||
+                oldOriginalPrice != verifiedProduct.OriginalPrice ||
+                oldSalePrice != verifiedProduct.SalePrice ||
+                oldQuantity != verifiedProduct.Quantity ||
+                oldCondition != verifiedProduct.Condition ||
+                oldIsUrgent != verifiedProduct.IsUrgent ||
+                oldCategoryId != verifiedProduct.CategoryId;
+
+            Console.WriteLine($"✅ Changes successfully applied: {changesDetected}");
+            Console.WriteLine("========================================");
+
+            // ─── RETURN UPDATED PRODUCT ──────────────────────────
+            return new
+            {
+                product.Id,
+                product.Title,
+                product.Description,
+                product.OriginalPrice,
+                product.SalePrice,
+                product.DiscountPercentage,
+                product.Quantity,
+                product.Condition,
+                product.IsUrgent,
+                product.ShopId,
+                CategoryId = product.CategoryId,
+                product.Slug,
+                product.Status,
+                product.ListingEndDate,
+                product.CreatedAt,
+                product.UpdatedAt,
+                product.SoldQuantity,
+                product.Saves,
+                product.Views,
+                Images = product.ProductImages.Select(i => new
+                {
+                    i.Id,
+                    i.ImageUrl,
+                    i.IsMain,
+                    i.SortOrder
+                }),
+                ShopName = product.Shop?.ShopName,
+                CategoryName = product.Category?.Name,
+                ChangesApplied = changesDetected
+            };
         }
 
 
@@ -411,13 +622,18 @@ namespace InventoryZeroAPI.Services
                 ProcessedAt = p.ProcessedAt
             }).ToList();
         }
-
         private string GenerateSlug(string title)
         {
             var slug = title.ToLower()
                 .Replace(" ", "-")
                 .Replace("'", "")
-                .Replace("&", "and");
+                .Replace("&", "and")
+                .Replace("`", "")  // ✅ Remove backticks
+                .Replace("\"", "") // ✅ Remove quotes
+                .Replace("'", ""); // ✅ Remove single quotes
+
+            // Remove any other special characters
+            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9-]", "");
 
             // Ensure unique
             var existing = _context.Products.Count(p => p.Slug.StartsWith(slug));
