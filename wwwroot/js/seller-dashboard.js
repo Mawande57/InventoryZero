@@ -648,20 +648,32 @@ async function saveProduct() {
 async function deleteProduct(id) {
     if (!confirm('Delete this product permanently?')) return;
 
+    console.log(`🗑️ Deleting product: ${id}`);
+
     try {
         const res = await fetch(`${API}/seller/products/${id}`, {
             method: 'DELETE',
             headers: authHeaders()
         });
 
-        if (res.ok) {
-            loadSellerProducts();
-            loadStats();
-        } else {
-            alert('Could not delete product.');
+        console.log(`📡 DELETE response status: ${res.status}`);
+
+        if (!res.ok) {
+            const error = await res.json();
+            console.log('❌ Error:', error);
+            alert(error.message || 'Could not delete product.');
+            return;
         }
+
+        const data = await res.json();
+        console.log('✅ Delete success:', data);
+        alert('Product deleted successfully!');
+
+        loadSellerProducts();
+        loadStats();
+
     } catch (e) {
-        console.error('Delete error:', e);
+        console.error('❌ Delete error:', e);
         alert('Something went wrong.');
     }
 }

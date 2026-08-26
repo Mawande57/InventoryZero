@@ -135,16 +135,19 @@ namespace InventoryZeroAPI.Controllers
         }
 
         // DELETE api/seller/products/{id}
+        // DELETE api/seller/products/{id}
         [HttpDelete("products/{id}")]
-        public async Task<IActionResult> DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct([FromForm] int id)
         {
             try
             {
+                Console.WriteLine($"🗑️ Deleting product: {id}");
                 await _sellerService.DeleteProductAsync(id, GetUserId());
-                return Ok(new { message = "Product deleted." });
+                return Ok(new { message = "Product deleted successfully." });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ Error deleting product: {ex.Message}");
                 return BadRequest(new { message = ex.Message });
             }
         }

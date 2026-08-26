@@ -514,18 +514,46 @@ namespace InventoryZeroAPI.Services
 
         public async Task DeleteProductAsync(int productId, int userId)
         {
+            Console.WriteLine($"🗑️ DeleteProductAsync: ProductId={productId}, UserId={userId}");
+
             var product = await _context.Products
                 .Include(p => p.Shop)
+                .Include(p => p.ProductImages)
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)
+            {
+                Console.WriteLine($"❌ Product {productId} not found!");
                 throw new Exception("Product not found.");
+            }
 
             if (product.Shop.UserId != userId)
+            {
+                Console.WriteLine($"❌ User {userId} doesn't own this product!");
                 throw new Exception("You don't have permission to delete this product.");
+            }
 
+            // ─── DELETE IMAGE FILES ──────────────────────────────
+            if (product.ProductImages != null && product.ProductImages.Any())
+            {
+                Console.WriteLine($"🗑️ Deleting {product.ProductImages.Count} image files...");
+                foreach (var img in product.ProductImages)
+                {
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", img.ImageUrl.TrimStart('/'));
+                    if (File.Exists(filePath))
+                    {
+                        Console.WriteLine($"   - Deleting file: {filePath}");
+                        File.Delete(filePath);
+                    }
+                }
+            }
+
+            // ─── REMOVE FROM DATABASE ────────────────────────────
             _context.Products.Remove(product);
-            await _context.SaveChangesAsync();
+            var saveResult = await _context.SaveChangesAsync();
+            Console.WriteLine($"✅ Product deleted. Save result: {saveResult}");
+
+
         }
 
         public async Task<List<ShopProfileDto>> GetShopsAsync(int userId)
