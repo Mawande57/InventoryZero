@@ -23,9 +23,8 @@ namespace InventoryZeroAPI.Services
             var shop = await _context.Shops
                 .Include(s => s.User)
                 .FirstOrDefaultAsync(s =>
-                    s.Id == id &&
-                    s.Status == "Active" &&
-                    s.IsVerified == true);
+                    s.Id == id 
+                    );
 
             if (shop == null) return null;
 
