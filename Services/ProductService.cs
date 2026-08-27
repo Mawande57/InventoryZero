@@ -19,12 +19,22 @@ namespace InventoryZeroAPI.Services
 
         public async Task<PagedResultDto<ProductCardDto>> GetAllAsync(ProductFilterDto filter)
         {
+            if (filter == null) throw new ArgumentNullException(nameof(filter));
+            if (filter.Page < 1) throw new ArgumentOutOfRangeException(nameof(filter), "Page must be 1 or greater.");
+            if (filter.PageSize < 1) throw new ArgumentOutOfRangeException(nameof(filter), "Page size must be 1 or greater.");
+
             // Start with base query — only active, admin approved, not expired
-            // This is called building a query — nothing hits the DB yet
+            // This is called building a query — nothing hits the DB yet.
+            //
+            // No Include() here: the final Select() further down projects straight to
+            // ProductCardDto, which only ever needs ShopName/City/LogoUrl, CategoryName,
+            // and one image URL. Pulling the full Shop/Category/ProductImages graph via
+            // Include for every product on a paginated listing page - just to throw away
+            // everything except a handful of scalar fields - was the biggest cost in this
+            // method, especially the images: a product with a dozen photos would join and
+            // materialize all of them just so we could pick one.
             var query = _context.Products
-                .Include(p => p.Shop)
-                .Include(p => p.Category)
-                .Include(p => p.ProductImages)
+                .AsNoTracking()
                 .Where(p =>
                     p.Status == "Active" &&
                     p.AdminApproved &&
@@ -83,36 +93,40 @@ namespace InventoryZeroAPI.Services
             // Page 1: skip 0, take 12
             // Page 2: skip 12, take 12
             // Page 3: skip 24, take 12
-            var products = await query
+            //
+            // Projecting to the DTO here (instead of loading Product entities and
+            // mapping afterward) means MainImageUrl is resolved as a small correlated
+            // subquery per product instead of a full join against ProductImages.
+            var items = await query
                 .Skip((filter.Page - 1) * filter.PageSize)
                 .Take(filter.PageSize)
+                .Select(p => new ProductCardDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Slug = p.Slug,
+                    ShopOwnerId = p.Shop.UserId,
+                    ShortDescription = p.ShortDescription,
+                    OriginalPrice = p.OriginalPrice,
+                    SalePrice = p.SalePrice,
+                    DiscountPercentage = p.DiscountPercentage,
+                    RemainingQuantity = p.Quantity - p.SoldQuantity,
+                    Condition = p.Condition,
+                    IsUrgent = p.IsUrgent,
+                    ListingEndDate = p.ListingEndDate,
+                    Status = p.Status,
+                    ShopName = p.Shop.ShopName,
+                    ShopCity = p.Shop.City,
+                    ShopLogoUrl = p.Shop.LogoUrl,
+                    CategoryName = p.Category != null ? p.Category.Name : null,
+                    // Get the main image, fall back to first image if no main set
+                    MainImageUrl = p.ProductImages
+                        .Where(i => i.IsMain)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault()
+                        ?? p.ProductImages.Select(i => i.ImageUrl).FirstOrDefault()
+                })
                 .ToListAsync();
-
-            // Map to DTO — never return raw model
-            var items = products.Select(p => new ProductCardDto
-            {
-                Id = p.Id,
-                Title = p.Title,
-                Slug = p.Slug,
-                ShopOwnerId = p.Shop.UserId,
-                ShortDescription = p.ShortDescription,
-                OriginalPrice = p.OriginalPrice,
-                SalePrice = p.SalePrice,
-                DiscountPercentage = p.DiscountPercentage,
-                RemainingQuantity = p.Quantity - p.SoldQuantity,
-                Condition = p.Condition,
-                IsUrgent = p.IsUrgent,
-                ListingEndDate = p.ListingEndDate,
-                Status = p.Status,
-                ShopName = p.Shop.ShopName,
-                ShopCity = p.Shop.City,
-                ShopLogoUrl = p.Shop.LogoUrl,
-                CategoryName = p.Category?.Name,
-                // Get the main image, fall back to first image if no main set
-                MainImageUrl = p.ProductImages
-                    .FirstOrDefault(i => i.IsMain)?.ImageUrl
-                    ?? p.ProductImages.FirstOrDefault()?.ImageUrl
-            }).ToList();
 
             return new PagedResultDto<ProductCardDto>
             {
@@ -125,7 +139,18 @@ namespace InventoryZeroAPI.Services
 
         public async Task<ProductDetailDto?> GetBySlugAsync(string slug)
         {
+            if (string.IsNullOrWhiteSpace(slug)) return null;
+
+            // This one stays tracked (default, no AsNoTracking) because we increment
+            // Views on the loaded entity and save it below.
+            //
+            // Two collection Includes here (ProductImages and Reviews) - loaded as a
+            // single query, that shape duplicates every scalar Product/Shop/Category
+            // column once per image-times-review combination (a product with 15 photos
+            // and 40 reviews would come back as 600 rows). AsSplitQuery() runs it as
+            // separate queries instead, which avoids that multiplication entirely.
             var product = await _context.Products
+                .AsSplitQuery()
                 .Include(p => p.Shop)
                 .Include(p => p.Category)
                 .Include(p => p.ProductImages.OrderBy(i => i.SortOrder))
@@ -148,9 +173,6 @@ namespace InventoryZeroAPI.Services
             var imageUrls = product.ProductImages
                 .Select(i => i.ImageUrl)
                 .ToList();
-
-            // ✅ Debug log
-            Console.WriteLine($"📸 Product: {product.Title}, Images found: {imageUrls.Count}");
 
             return new ProductDetailDto
             {
@@ -176,7 +198,7 @@ namespace InventoryZeroAPI.Services
                 Saves = product.Saves,
                 Status = product.Status,
                 CreatedAt = product.CreatedAt,
-                ImageUrls = imageUrls,  // ✅ This should work
+                ImageUrls = imageUrls,
                 ShopId = product.Shop.Id,
                 ShopName = product.Shop.ShopName,
                 ShopCity = product.Shop.City,
@@ -192,10 +214,12 @@ namespace InventoryZeroAPI.Services
 
         public async Task<List<ProductCardDto>> GetByCategoryAsync(string categorySlug)
         {
-            var products = await _context.Products
-                .Include(p => p.Shop)
-                .Include(p => p.Category)
-                .Include(p => p.ProductImages)
+            if (string.IsNullOrWhiteSpace(categorySlug)) return new List<ProductCardDto>();
+
+            // Same reasoning as GetAllAsync: project straight to the DTO instead of
+            // Include-ing the full Shop/Category/ProductImages graph for every product.
+            return await _context.Products
+                .AsNoTracking()
                 .Where(p =>
                     p.Category != null &&
                     p.Category.Slug == categorySlug &&
@@ -204,39 +228,43 @@ namespace InventoryZeroAPI.Services
                     p.ListingEndDate > DateTime.Now &&
                     p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new ProductCardDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Slug = p.Slug,
+                    ShopOwnerId = p.Shop.UserId,
+                    ShortDescription = p.ShortDescription,
+                    OriginalPrice = p.OriginalPrice,
+                    SalePrice = p.SalePrice,
+                    DiscountPercentage = p.DiscountPercentage,
+                    RemainingQuantity = p.Quantity - p.SoldQuantity,
+                    Condition = p.Condition,
+                    IsUrgent = p.IsUrgent,
+                    ListingEndDate = p.ListingEndDate,
+                    Status = p.Status,
+                    ShopName = p.Shop.ShopName,
+                    ShopCity = p.Shop.City,
+                    ShopLogoUrl = p.Shop.LogoUrl,
+                    CategoryName = p.Category != null ? p.Category.Name : null,
+                    MainImageUrl = p.ProductImages
+                        .Where(i => i.IsMain)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault()
+                        ?? p.ProductImages.Select(i => i.ImageUrl).FirstOrDefault()
+                })
                 .ToListAsync();
-
-            return products.Select(p => new ProductCardDto
-            {
-                Id = p.Id,
-                Title = p.Title,
-                Slug = p.Slug,
-                ShopOwnerId = p.Shop.UserId,
-                ShortDescription = p.ShortDescription,
-                OriginalPrice = p.OriginalPrice,
-                SalePrice = p.SalePrice,
-                DiscountPercentage = p.DiscountPercentage,
-                RemainingQuantity = p.Quantity - p.SoldQuantity,
-                Condition = p.Condition,
-                IsUrgent = p.IsUrgent,
-                ListingEndDate = p.ListingEndDate,
-                Status = p.Status,
-                ShopName = p.Shop.ShopName,
-                ShopCity = p.Shop.City,
-                ShopLogoUrl = p.Shop.LogoUrl,
-                CategoryName = p.Category?.Name,
-                MainImageUrl = p.ProductImages
-                    .FirstOrDefault(i => i.IsMain)?.ImageUrl
-                    ?? p.ProductImages.FirstOrDefault()?.ImageUrl
-            }).ToList();
         }
 
         public async Task<List<ProductCardDto>> GetByShopAsync(int shopId)
         {
-            var products = await _context.Products
-                .Include(p => p.Shop)
-                .Include(p => p.Category)
-                .Include(p => p.ProductImages)
+            if (shopId <= 0) return new List<ProductCardDto>();
+
+            // Same reasoning as GetAllAsync. Note: ShopLogoUrl isn't populated here,
+            // same as the original - left that as-is since it changes what's returned,
+            // not how it's fetched.
+            return await _context.Products
+                .AsNoTracking()
                 .Where(p =>
                     p.ShopId == shopId &&
                     p.Status == "Active" &&
@@ -244,30 +272,31 @@ namespace InventoryZeroAPI.Services
                     p.ListingEndDate > DateTime.Now &&
                     p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new ProductCardDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Slug = p.Slug,
+                    ShopOwnerId = p.Shop.UserId,
+                    ShortDescription = p.ShortDescription,
+                    OriginalPrice = p.OriginalPrice,
+                    SalePrice = p.SalePrice,
+                    DiscountPercentage = p.DiscountPercentage,
+                    RemainingQuantity = p.Quantity - p.SoldQuantity,
+                    Condition = p.Condition,
+                    IsUrgent = p.IsUrgent,
+                    ListingEndDate = p.ListingEndDate,
+                    Status = p.Status,
+                    ShopName = p.Shop.ShopName,
+                    ShopCity = p.Shop.City,
+                    CategoryName = p.Category != null ? p.Category.Name : null,
+                    MainImageUrl = p.ProductImages
+                        .Where(i => i.IsMain)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault()
+                        ?? p.ProductImages.Select(i => i.ImageUrl).FirstOrDefault()
+                })
                 .ToListAsync();
-
-            return products.Select(p => new ProductCardDto
-            {
-                Id = p.Id,
-                Title = p.Title,
-                Slug = p.Slug,
-                ShopOwnerId = p.Shop.UserId,  // ✅ ADD THIS LINE
-                ShortDescription = p.ShortDescription,
-                OriginalPrice = p.OriginalPrice,
-                SalePrice = p.SalePrice,
-                DiscountPercentage = p.DiscountPercentage,
-                RemainingQuantity = p.Quantity - p.SoldQuantity,
-                Condition = p.Condition,
-                IsUrgent = p.IsUrgent,
-                ListingEndDate = p.ListingEndDate,
-                Status = p.Status,
-                ShopName = p.Shop.ShopName,
-                ShopCity = p.Shop.City,
-                CategoryName = p.Category?.Name,
-                MainImageUrl = p.ProductImages
-                    .FirstOrDefault(i => i.IsMain)?.ImageUrl
-                    ?? p.ProductImages.FirstOrDefault()?.ImageUrl
-            }).ToList();
         }
     }
 }

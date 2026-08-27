@@ -20,41 +20,46 @@ namespace InventoryZeroAPI.Services
 
         public async Task<ShopProfileDto?> GetByIdAsync(int id)
         {
-            var shop = await _context.Shops
-                .Include(s => s.User)
-                .FirstOrDefaultAsync(s =>
-                    s.Id == id 
-                    );
+            if (id <= 0) return null;
 
-            if (shop == null) return null;
-
-            return new ShopProfileDto
-            {
-                Id = shop.Id,
-                ShopName = shop.ShopName,
-                ShopDescription = shop.ShopDescription,
-                LogoUrl = shop.LogoUrl,
-                CoverImageUrl = shop.CoverImageUrl,
-                City = shop.City,
-                Province = shop.Province,
-                Country = shop.Country,
-                IsVerified = shop.IsVerified,
-                TotalSales = shop.TotalSales,
-                TotalRevenue = shop.TotalRevenue,
-                Status = shop.Status,
-                CreatedAt = shop.CreatedAt,
-                OwnerName = shop.User.FullName,
-                OwnerRating = shop.User.Rating,
-                OwnerTotalReviews = shop.User.TotalReviews
-            };
+            // Projected straight to the DTO instead of Include + map afterward -
+            // no need to materialize the full Shop/User entities just to read a
+            // handful of fields off each.
+            return await _context.Shops
+                .AsNoTracking()
+                .Where(s => s.Id == id)
+                .Select(s => new ShopProfileDto
+                {
+                    Id = s.Id,
+                    ShopName = s.ShopName,
+                    ShopDescription = s.ShopDescription,
+                    LogoUrl = s.LogoUrl,
+                    CoverImageUrl = s.CoverImageUrl,
+                    City = s.City,
+                    Province = s.Province,
+                    Country = s.Country,
+                    IsVerified = s.IsVerified,
+                    TotalSales = s.TotalSales,
+                    TotalRevenue = s.TotalRevenue,
+                    Status = s.Status,
+                    CreatedAt = s.CreatedAt,
+                    OwnerName = s.User.FullName,
+                    OwnerRating = s.User.Rating,
+                    OwnerTotalReviews = s.User.TotalReviews
+                })
+                .FirstOrDefaultAsync();
         }
 
         public async Task<List<ProductCardDto>> GetShopProductsAsync(int shopId)
         {
-            var products = await _context.Products
-                .Include(p => p.Shop)
-                .Include(p => p.Category)
-                .Include(p => p.ProductImages)
+            if (shopId <= 0) return new List<ProductCardDto>();
+
+            // Same reasoning as ProductService/SellerService: project straight to
+            // the DTO instead of Include-ing the full Shop/Category/ProductImages
+            // graph for every product just to read a few scalar fields and one
+            // image URL off each.
+            return await _context.Products
+                .AsNoTracking()
                 .Where(p =>
                     p.ShopId == shopId &&
                     p.Status == "Active" &&
@@ -62,30 +67,31 @@ namespace InventoryZeroAPI.Services
                     p.ListingEndDate > DateTime.Now &&
                     p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new ProductCardDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Slug = p.Slug,
+                    ShortDescription = p.ShortDescription,
+                    OriginalPrice = p.OriginalPrice,
+                    SalePrice = p.SalePrice,
+                    DiscountPercentage = p.DiscountPercentage,
+                    RemainingQuantity = p.Quantity - p.SoldQuantity,
+                    Condition = p.Condition,
+                    IsUrgent = p.IsUrgent,
+                    ListingEndDate = p.ListingEndDate,
+                    Status = p.Status,
+                    ShopName = p.Shop.ShopName,
+                    ShopOwnerId = p.Shop.UserId,
+                    ShopCity = p.Shop.City,
+                    CategoryName = p.Category != null ? p.Category.Name : null,
+                    MainImageUrl = p.ProductImages
+                        .Where(i => i.IsMain)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault()
+                        ?? p.ProductImages.Select(i => i.ImageUrl).FirstOrDefault()
+                })
                 .ToListAsync();
-
-            return products.Select(p => new ProductCardDto
-            {
-                Id = p.Id,
-                Title = p.Title,
-                Slug = p.Slug,
-                ShortDescription = p.ShortDescription,
-                OriginalPrice = p.OriginalPrice,
-                SalePrice = p.SalePrice,
-                DiscountPercentage = p.DiscountPercentage,
-                RemainingQuantity = p.Quantity - p.SoldQuantity,
-                Condition = p.Condition,
-                IsUrgent = p.IsUrgent,
-                ListingEndDate = p.ListingEndDate,
-                Status = p.Status,
-                ShopName = p.Shop.ShopName,
-                ShopOwnerId = p.Shop.UserId,
-                ShopCity = p.Shop.City,
-                CategoryName = p.Category?.Name,
-                MainImageUrl = p.ProductImages
-                    .FirstOrDefault(i => i.IsMain)?.ImageUrl
-                    ?? p.ProductImages.FirstOrDefault()?.ImageUrl
-            }).ToList();
         }
     }
 }

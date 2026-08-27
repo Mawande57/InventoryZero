@@ -20,39 +20,51 @@ namespace InventoryZeroAPI.Services
 
         public async Task<object> GetStatsAsync(int userId)
         {
-            var shops = await _context.Shops.Where(s => s.UserId == userId).ToListAsync();
-            var shopIds = shops.Select(s => s.Id).ToList();
+            if (userId <= 0) return new { Shops = 0, Products = 0, Orders = 0, Revenue = 0m };
 
-            var products = await _context.Products
-                .Where(p => shopIds.Contains(p.ShopId))
+            // Only the ids are needed for the downstream Contains() filters below,
+            // and only counts/sums are needed for the response - loading full
+            // Shop/Product/Order entity graphs (the OrderItems Include wasn't even
+            // used anywhere in this method) just to call .Count()/.Sum() on them
+            // in memory was pulling far more data than this dashboard needs.
+            var shopIds = await _context.Shops
+                .AsNoTracking()
+                .Where(s => s.UserId == userId)
+                .Select(s => s.Id)
                 .ToListAsync();
 
-            var orders = await _context.Orders
-                .Include(o => o.OrderItems)
-                .Where(o => shopIds.Contains(o.ShopId))
-                .ToListAsync();
+            var productCount = await _context.Products
+                .CountAsync(p => shopIds.Contains(p.ShopId));
 
-            var revenue = orders
-                .Where(o => o.OrderStatus == "Delivered" || o.OrderStatus == "Shipped")
-                .Sum(o => o.SellerPayout);
+            var orderCount = await _context.Orders
+                .CountAsync(o => shopIds.Contains(o.ShopId));
+
+            var revenue = await _context.Orders
+                .Where(o => shopIds.Contains(o.ShopId) &&
+                    (o.OrderStatus == "Delivered" || o.OrderStatus == "Shipped"))
+                .SumAsync(o => o.SellerPayout);
 
             return new
             {
-                Shops = shops.Count,
-                Products = products.Count,
-                Orders = orders.Count,
+                Shops = shopIds.Count,
+                Products = productCount,
+                Orders = orderCount,
                 Revenue = revenue
             };
         }
 
         public async Task<List<OrderSummaryDto>> GetOrdersAsync(int userId, string? status)
         {
+            if (userId <= 0) return new List<OrderSummaryDto>();
+
             var shopIds = await _context.Shops
+                .AsNoTracking()
                 .Where(s => s.UserId == userId)
                 .Select(s => s.Id)
                 .ToListAsync();
 
             var query = _context.Orders
+                .AsNoTracking()
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
                 .Include(o => o.Shop)
@@ -92,6 +104,10 @@ namespace InventoryZeroAPI.Services
 
         public async Task UpdateOrderStatusAsync(int orderId, int userId, string status, string? trackingNumber)
         {
+            if (orderId <= 0) throw new ArgumentOutOfRangeException(nameof(orderId));
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+
+            // Tracked (not AsNoTracking) - we mutate this entity below.
             var order = await _context.Orders
                 .Include(o => o.Shop)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
@@ -130,11 +146,15 @@ namespace InventoryZeroAPI.Services
         {
             await UpdateOrderStatusAsync(orderId, userId, "Cancelled", null);
         }
-        // Services/SellerService.cs - Add this method
 
         public async Task<object> GetProductByIdAsync(int productId, int userId)
         {
+            if (productId <= 0) throw new ArgumentOutOfRangeException(nameof(productId));
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+
+            // Read-only - nothing here gets modified or saved.
             var product = await _context.Products
+                .AsNoTracking()
                 .Include(p => p.Shop)
                 .Include(p => p.Category)
                 .Include(p => p.ProductImages)
@@ -168,7 +188,6 @@ namespace InventoryZeroAPI.Services
                 product.DiscountPercentage,
                 product.Saves,
                 product.Views,
-                // Include images
                 Images = product.ProductImages.Select(i => new
                 {
                     i.Id,
@@ -183,52 +202,63 @@ namespace InventoryZeroAPI.Services
 
         public async Task<List<ProductCardDto>> GetProductsAsync(int userId)
         {
+            if (userId <= 0) return new List<ProductCardDto>();
+
             var shopIds = await _context.Shops
+                .AsNoTracking()
                 .Where(s => s.UserId == userId)
                 .Select(s => s.Id)
                 .ToListAsync();
 
-            var products = await _context.Products
-                .Include(p => p.Shop)
-                .Include(p => p.Category)
-                .Include(p => p.ProductImages)
+            // Projected straight to the DTO instead of Include + map afterward -
+            // same reasoning as ProductService: avoids materializing full Shop/
+            // Category/ProductImages entities just to read a few scalar fields.
+            //
+            // NOTE: unlike ProductService's DTO mapping, this doesn't fall back to
+            // the first image when no main image is set - that's the original
+            // behavior, preserved exactly (a "fix" here would change what's
+            // returned, which wasn't asked for).
+            return await _context.Products
+                .AsNoTracking()
                 .Where(p => shopIds.Contains(p.ShopId))
                 .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new ProductCardDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Slug = p.Slug,
+                    OriginalPrice = p.OriginalPrice,
+                    SalePrice = p.SalePrice,
+                    DiscountPercentage = p.DiscountPercentage,
+                    RemainingQuantity = p.Quantity - p.SoldQuantity,
+                    Condition = p.Condition,
+                    IsUrgent = p.IsUrgent,
+                    ListingEndDate = p.ListingEndDate,
+                    Status = p.Status,
+                    ShopName = p.Shop.ShopName,
+                    ShopCity = p.Shop.City,
+                    CategoryName = p.Category != null ? p.Category.Name : null,
+                    MainImageUrl = p.ProductImages
+                        .Where(i => i.IsMain)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault()
+                })
                 .ToListAsync();
-
-            return products.Select(p => new ProductCardDto
-            {
-                Id = p.Id,
-                Title = p.Title,
-                Slug = p.Slug,
-                OriginalPrice = p.OriginalPrice,
-                SalePrice = p.SalePrice,
-                DiscountPercentage = p.DiscountPercentage,
-                RemainingQuantity = p.Quantity - p.SoldQuantity,
-                Condition = p.Condition,
-                IsUrgent = p.IsUrgent,
-                ListingEndDate = p.ListingEndDate,
-                Status = p.Status,
-                ShopName = p.Shop.ShopName,
-                ShopCity = p.Shop.City,
-                CategoryName = p.Category?.Name,
-                MainImageUrl = p.ProductImages.FirstOrDefault(i => i.IsMain)?.ImageUrl
-            }).ToList();
         }
-
-        // Services/SellerService.cs - Update CreateProductAsync
-
-        // Services/SellerService.cs
 
         public async Task<object> CreateProductAsync(int userId, CreateProductDto dto)
         {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+
+            // Read-only lookup, just for the ownership check - not modified here.
             var shop = await _context.Shops
+                .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == dto.ShopId && s.UserId == userId);
 
             if (shop == null)
                 throw new Exception("Shop not found or you don't have permission.");
 
-            var slug = GenerateSlug(dto.Title);
+            var slug = await GenerateSlugAsync(dto.Title);
 
             var product = new Product
             {
@@ -250,9 +280,8 @@ namespace InventoryZeroAPI.Services
             };
 
             _context.Products.Add(product);
-            await _context.SaveChangesAsync();
 
-            // ✅ Handle image upload - check for null
+            // Handle image upload - check for null
             if (dto.Images != null && dto.Images.Any())
             {
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
@@ -272,77 +301,45 @@ namespace InventoryZeroAPI.Services
 
                     var imageUrl = $"/uploads/products/{uniqueFileName}";
 
+                    // Linked via the Product navigation rather than ProductId -
+                    // product hasn't been saved yet, so its Id is still the
+                    // temporary value. EF resolves the real FK automatically at
+                    // SaveChanges time, which is what lets the product and all
+                    // of its images go out in one SaveChangesAsync instead of two.
                     _context.ProductImages.Add(new ProductImage
                     {
-                        ProductId = product.Id,
+                        Product = product,
                         ImageUrl = imageUrl,
                         IsMain = i == 0,
                         SortOrder = i,
                         CreatedAt = DateTime.Now
                     });
                 }
-
-                await _context.SaveChangesAsync();
             }
+
+            await _context.SaveChangesAsync();
 
             return new { Id = product.Id, Slug = product.Slug };
         }
 
-        // Also update UpdateProductAsync for editing images
         public async Task<object> UpdateProductAsync(int productId, int userId, CreateProductDto dto)
         {
-            Console.WriteLine("========================================");
-            Console.WriteLine($"🔍 UPDATE PRODUCT STARTED");
-            Console.WriteLine($"📌 ProductId: {productId}");
-            Console.WriteLine($"👤 UserId: {userId}");
-            Console.WriteLine($"📦 New Values from DTO:");
-            Console.WriteLine($"   - Title: {dto.Title}");
-            Console.WriteLine($"   - Description: {dto.Description}");
-            Console.WriteLine($"   - OriginalPrice: {dto.OriginalPrice}");
-            Console.WriteLine($"   - SalePrice: {dto.SalePrice}");
-            Console.WriteLine($"   - Quantity: {dto.Quantity}");
-            Console.WriteLine($"   - Condition: {dto.Condition}");
-            Console.WriteLine($"   - IsUrgent: {dto.IsUrgent}");
-            Console.WriteLine($"   - ShopId: {dto.ShopId}");
-            Console.WriteLine($"   - CategoryId: {dto.CategoryId}");
-            Console.WriteLine($"   - Images Count: {dto.Images?.Count ?? 0}");
-            Console.WriteLine("========================================");
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            if (productId <= 0) throw new ArgumentOutOfRangeException(nameof(productId));
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
 
-            // ─── GET PRODUCT ─────────────────────────────────────
+            // Tracked (not AsNoTracking) - fields are set directly on this entity below.
             var product = await _context.Products
                 .Include(p => p.Shop)
+                .Include(p => p.Category)
                 .Include(p => p.ProductImages)
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)
-            {
-                Console.WriteLine($"❌ ERROR: Product {productId} not found in database!");
                 throw new Exception("Product not found.");
-            }
 
-            Console.WriteLine($"✅ Found product in database:");
-            Console.WriteLine($"   - Current Title: {product.Title}");
-            Console.WriteLine($"   - Current OriginalPrice: {product.OriginalPrice}");
-            Console.WriteLine($"   - Current SalePrice: {product.SalePrice}");
-            Console.WriteLine($"   - Current Quantity: {product.Quantity}");
-            Console.WriteLine($"   - Current Condition: {product.Condition}");
-            Console.WriteLine($"   - Current IsUrgent: {product.IsUrgent}");
-            Console.WriteLine($"   - Current ShopId: {product.ShopId}");
-            Console.WriteLine($"   - Current CategoryId: {product.CategoryId}");
-            Console.WriteLine($"   - Current Images: {product.ProductImages.Count}");
-            Console.WriteLine($"   - Shop UserId: {product.Shop?.UserId}");
-
-            // ─── CHECK PERMISSION ──────────────────────────────
             if (product.Shop == null || product.Shop.UserId != userId)
-            {
-                Console.WriteLine($"❌ ERROR: User {userId} doesn't own this product! Shop.UserId: {product.Shop?.UserId}");
                 throw new Exception("You don't have permission to edit this product.");
-            }
-
-            Console.WriteLine($"✅ Permission check passed - User owns this product");
-
-            // ─── UPDATE PRODUCT ──────────────────────────────────
-            Console.WriteLine("📝 Updating product fields...");
 
             var oldTitle = product.Title;
             var oldOriginalPrice = product.OriginalPrice;
@@ -363,52 +360,29 @@ namespace InventoryZeroAPI.Services
             product.CategoryId = dto.CategoryId;
             product.UpdatedAt = DateTime.Now;
 
-            Console.WriteLine("📊 Field changes:");
-            Console.WriteLine($"   - Title: '{oldTitle}' → '{product.Title}'");
-            Console.WriteLine($"   - OriginalPrice: {oldOriginalPrice} → {product.OriginalPrice}");
-            Console.WriteLine($"   - SalePrice: {oldSalePrice} → {product.SalePrice}");
-            Console.WriteLine($"   - Quantity: {oldQuantity} → {product.Quantity}");
-            Console.WriteLine($"   - Condition: '{oldCondition}' → '{product.Condition}'");
-            Console.WriteLine($"   - IsUrgent: {oldIsUrgent} → {product.IsUrgent}");
-            Console.WriteLine($"   - CategoryId: {oldCategoryId} → {product.CategoryId}");
-            Console.WriteLine($"   - DiscountPercentage: {product.DiscountPercentage}%");
-
-            // ─── HANDLE IMAGES ──────────────────────────────────
             if (dto.Images != null && dto.Images.Any())
             {
-                Console.WriteLine($"📷 Processing {dto.Images.Count} new images...");
-
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "products");
                 if (!Directory.Exists(uploadsFolder))
-                {
-                    Console.WriteLine($"📁 Creating uploads folder: {uploadsFolder}");
                     Directory.CreateDirectory(uploadsFolder);
-                }
 
                 // Delete existing images
                 var existingImages = product.ProductImages.ToList();
-                Console.WriteLine($"🗑️ Deleting {existingImages.Count} existing images...");
-
                 foreach (var img in existingImages)
                 {
                     var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", img.ImageUrl.TrimStart('/'));
                     if (File.Exists(filePath))
-                    {
-                        Console.WriteLine($"   - Deleting file: {filePath}");
                         File.Delete(filePath);
-                    }
+
                     _context.ProductImages.Remove(img);
                 }
 
                 // Add new images
-                Console.WriteLine($"📤 Adding {dto.Images.Count} new images...");
                 for (int i = 0; i < dto.Images.Count; i++)
                 {
                     var file = dto.Images[i];
                     var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
                     var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    Console.WriteLine($"   - Saving image {i + 1}: {file.FileName} → {uniqueFileName}");
 
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
@@ -427,56 +401,30 @@ namespace InventoryZeroAPI.Services
                     });
                 }
             }
-            else
-            {
-                Console.WriteLine("📷 No new images to process - keeping existing images");
-            }
 
-            // ─── SAVE CHANGES ────────────────────────────────────
-            Console.WriteLine("💾 Saving changes to database...");
-
-            // Force EF to track changes
-            _context.Entry(product).State = EntityState.Modified;
-
+            // product is already tracked (it came from the query above) and its
+            // properties were changed directly, so EF's default change tracking
+            // already knows exactly which columns to update - no need to force
+            // EntityState.Modified, which would make it write every column
+            // instead of just the ones that actually changed.
             var saveResult = await _context.SaveChangesAsync();
-            Console.WriteLine($"✅ SaveChangesAsync returned: {saveResult} entities saved");
 
             if (saveResult == 0)
-            {
-                Console.WriteLine("⚠️ WARNING: No entities were saved! Changes may not have been applied.");
                 throw new Exception("Failed to save product changes.");
-            }
 
-            // ─── VERIFY UPDATE ───────────────────────────────────
-            Console.WriteLine("🔍 Verifying update by fetching product again...");
-            var verifiedProduct = await _context.Products
-                .Include(p => p.Shop)
-                .Include(p => p.Category)
-                .Include(p => p.ProductImages)
-                .FirstOrDefaultAsync(p => p.Id == productId);
-
-            Console.WriteLine("✅ Verification result:");
-            Console.WriteLine($"   - Title: {verifiedProduct?.Title}");
-            Console.WriteLine($"   - OriginalPrice: {verifiedProduct?.OriginalPrice}");
-            Console.WriteLine($"   - SalePrice: {verifiedProduct?.SalePrice}");
-            Console.WriteLine($"   - Quantity: {verifiedProduct?.Quantity}");
-            Console.WriteLine($"   - Condition: {verifiedProduct?.Condition}");
-            Console.WriteLine($"   - Images: {verifiedProduct?.ProductImages.Count}");
-
-            // ─── COMPARE BEFORE/AFTER ──────────────────────────
+            // product already holds the new values in memory (they were set
+            // directly above) - no need to re-fetch it from the DB to compare
+            // old vs new, that was a redundant round trip returning data we
+            // already had.
             var changesDetected =
-                oldTitle != verifiedProduct?.Title ||
-                oldOriginalPrice != verifiedProduct.OriginalPrice ||
-                oldSalePrice != verifiedProduct.SalePrice ||
-                oldQuantity != verifiedProduct.Quantity ||
-                oldCondition != verifiedProduct.Condition ||
-                oldIsUrgent != verifiedProduct.IsUrgent ||
-                oldCategoryId != verifiedProduct.CategoryId;
+                oldTitle != product.Title ||
+                oldOriginalPrice != product.OriginalPrice ||
+                oldSalePrice != product.SalePrice ||
+                oldQuantity != product.Quantity ||
+                oldCondition != product.Condition ||
+                oldIsUrgent != product.IsUrgent ||
+                oldCategoryId != product.CategoryId;
 
-            Console.WriteLine($"✅ Changes successfully applied: {changesDetected}");
-            Console.WriteLine("========================================");
-
-            // ─── RETURN UPDATED PRODUCT ──────────────────────────
             return new
             {
                 product.Id,
@@ -511,10 +459,10 @@ namespace InventoryZeroAPI.Services
             };
         }
 
-
         public async Task DeleteProductAsync(int productId, int userId)
         {
-            Console.WriteLine($"🗑️ DeleteProductAsync: ProductId={productId}, UserId={userId}");
+            if (productId <= 0) throw new ArgumentOutOfRangeException(nameof(productId));
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
 
             var product = await _context.Products
                 .Include(p => p.Shop)
@@ -522,89 +470,80 @@ namespace InventoryZeroAPI.Services
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (product == null)
-            {
-                Console.WriteLine($"❌ Product {productId} not found!");
                 throw new Exception("Product not found.");
-            }
 
             if (product.Shop.UserId != userId)
-            {
-                Console.WriteLine($"❌ User {userId} doesn't own this product!");
                 throw new Exception("You don't have permission to delete this product.");
-            }
 
-            // ─── DELETE IMAGE FILES ──────────────────────────────
             if (product.ProductImages != null && product.ProductImages.Any())
             {
-                Console.WriteLine($"🗑️ Deleting {product.ProductImages.Count} image files...");
                 foreach (var img in product.ProductImages)
                 {
                     var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", img.ImageUrl.TrimStart('/'));
                     if (File.Exists(filePath))
-                    {
-                        Console.WriteLine($"   - Deleting file: {filePath}");
                         File.Delete(filePath);
-                    }
                 }
             }
 
-            // ─── REMOVE FROM DATABASE ────────────────────────────
             _context.Products.Remove(product);
-            var saveResult = await _context.SaveChangesAsync();
-            Console.WriteLine($"✅ Product deleted. Save result: {saveResult}");
-
-
+            await _context.SaveChangesAsync();
         }
 
         public async Task<List<ShopProfileDto>> GetShopsAsync(int userId)
         {
-            var shops = await _context.Shops
-                .Include(s => s.User)
-                .Where(s => s.UserId == userId)
-                .ToListAsync();
+            if (userId <= 0) return new List<ShopProfileDto>();
 
-            return shops.Select(s => new ShopProfileDto
-            {
-                Id = s.Id,
-                ShopName = s.ShopName,
-                ShopDescription = s.ShopDescription,
-                City = s.City,
-                Province = s.Province,
-                Country = s.Country,
-                IsVerified = s.IsVerified,
-                TotalSales = s.TotalSales,
-                TotalRevenue = s.TotalRevenue,
-                Status = s.Status,
-                CreatedAt = s.CreatedAt,
-                OwnerName = s.User.FullName
-            }).ToList();
+            return await _context.Shops
+                .AsNoTracking()
+                .Where(s => s.UserId == userId)
+                .Select(s => new ShopProfileDto
+                {
+                    Id = s.Id,
+                    ShopName = s.ShopName,
+                    ShopDescription = s.ShopDescription,
+                    City = s.City,
+                    Province = s.Province,
+                    Country = s.Country,
+                    IsVerified = s.IsVerified,
+                    TotalSales = s.TotalSales,
+                    TotalRevenue = s.TotalRevenue,
+                    Status = s.Status,
+                    CreatedAt = s.CreatedAt,
+                    OwnerName = s.User.FullName
+                })
+                .ToListAsync();
         }
+
         public async Task<List<ShopProfileDto>> GetVerifiedShopsAsync(int userId)
         {
-            var shops = await _context.Shops
-                .Include(s => s.User)
-                .Where(s => s.UserId == userId && s.IsVerified == true && s.Status == "Active")  // ✅ ONLY verified + active
-                .ToListAsync();
+            if (userId <= 0) return new List<ShopProfileDto>();
 
-            return shops.Select(s => new ShopProfileDto
-            {
-                Id = s.Id,
-                ShopName = s.ShopName,
-                ShopDescription = s.ShopDescription,
-                City = s.City,
-                Province = s.Province,
-                Country = s.Country,
-                IsVerified = s.IsVerified,
-                TotalSales = s.TotalSales,
-                TotalRevenue = s.TotalRevenue,
-                Status = s.Status,
-                CreatedAt = s.CreatedAt,
-                OwnerName = s.User.FullName
-            }).ToList();
+            return await _context.Shops
+                .AsNoTracking()
+                .Where(s => s.UserId == userId && s.IsVerified == true && s.Status == "Active")
+                .Select(s => new ShopProfileDto
+                {
+                    Id = s.Id,
+                    ShopName = s.ShopName,
+                    ShopDescription = s.ShopDescription,
+                    City = s.City,
+                    Province = s.Province,
+                    Country = s.Country,
+                    IsVerified = s.IsVerified,
+                    TotalSales = s.TotalSales,
+                    TotalRevenue = s.TotalRevenue,
+                    Status = s.Status,
+                    CreatedAt = s.CreatedAt,
+                    OwnerName = s.User.FullName
+                })
+                .ToListAsync();
         }
 
         public async Task<object> CreateShopAsync(int userId, CreateShopDto dto)
         {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+
             var shop = new Shop
             {
                 ShopName = dto.ShopName,
@@ -614,7 +553,7 @@ namespace InventoryZeroAPI.Services
                 PhoneNumber = dto.PhoneNumber,
                 UserId = userId,
                 Status = "Pending",
-                IsVerified= false,
+                IsVerified = false,
                 CreatedAt = DateTime.Now,
                 CommissionRate = 15.00m
             };
@@ -627,44 +566,49 @@ namespace InventoryZeroAPI.Services
 
         public async Task<List<PayoutDto>> GetPayoutsAsync(int userId)
         {
+            if (userId <= 0) return new List<PayoutDto>();
+
             var shopIds = await _context.Shops
+                .AsNoTracking()
                 .Where(s => s.UserId == userId)
                 .Select(s => s.Id)
                 .ToListAsync();
 
-            var payouts = await _context.Payouts
-                .Include(p => p.Shop)
-                .Include(p => p.Order)
+            return await _context.Payouts
+                .AsNoTracking()
                 .Where(p => shopIds.Contains(p.ShopId))
                 .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new PayoutDto
+                {
+                    Id = p.Id,
+                    Amount = p.Amount,
+                    Status = p.Status,
+                    ShopName = p.Shop.ShopName,
+                    OrderNumber = p.Order.OrderNumber,
+                    CreatedAt = p.CreatedAt,
+                    ProcessedAt = p.ProcessedAt
+                })
                 .ToListAsync();
-
-            return payouts.Select(p => new PayoutDto
-            {
-                Id = p.Id,
-                Amount = p.Amount,
-                Status = p.Status,
-                ShopName = p.Shop.ShopName,
-                OrderNumber = p.Order.OrderNumber,
-                CreatedAt = p.CreatedAt,
-                ProcessedAt = p.ProcessedAt
-            }).ToList();
         }
-        private string GenerateSlug(string title)
+
+        private async Task<string> GenerateSlugAsync(string title)
         {
             var slug = title.ToLower()
                 .Replace(" ", "-")
                 .Replace("'", "")
                 .Replace("&", "and")
-                .Replace("`", "")  // ✅ Remove backticks
-                .Replace("\"", "") // ✅ Remove quotes
-                .Replace("'", ""); // ✅ Remove single quotes
+                .Replace("`", "")
+                .Replace("\"", "")
+                .Replace("'", "");
 
             // Remove any other special characters
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9-]", "");
 
-            // Ensure unique
-            var existing = _context.Products.Count(p => p.Slug.StartsWith(slug));
+            // Ensure unique - was previously a synchronous .Count() call inside this
+            // async method, which blocks a thread pool thread on every product
+            // creation. CountAsync() lets the thread go back to the pool while the
+            // query runs instead of blocking it.
+            var existing = await _context.Products.CountAsync(p => p.Slug.StartsWith(slug));
             return existing > 0 ? $"{slug}-{existing + 1}" : slug;
         }
 
@@ -675,4 +619,3 @@ namespace InventoryZeroAPI.Services
         }
     }
 }
-

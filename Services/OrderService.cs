@@ -8,7 +8,18 @@ namespace InventoryZeroAPI.Services
     public class OrderService : IOrderService
     {
         private readonly InventoryZeroDbContext _context;
+
+        // NOTE: this only protects against races within a single process, and only if
+        // OrderService is registered as a Singleton in DI - if it's Scoped (the usual
+        // registration for anything holding a DbContext), a fresh semaphore is created
+        // per request and this does nothing at all. Even as a Singleton, it serializes
+        // every order for every product platform-wide through one lock, and it still
+        // wouldn't protect against oversell once there's more than one app instance
+        // behind a load balancer. Real oversell protection needs a DB-level conditional
+        // update or row locking inside a transaction. Left as-is - swapping this out
+        // changes the concurrency model, not just performance.
         private readonly SemaphoreSlim _stockLock = new SemaphoreSlim(1, 1);
+
         public OrderService(InventoryZeroDbContext context)
         {
             _context = context;
@@ -16,14 +27,21 @@ namespace InventoryZeroAPI.Services
 
         public async Task<OrderDetailDto> PlaceOrderAsync(int buyerId, PlaceOrderDto dto)
         {
+            // Validate before ever taking the lock - no point blocking other orders
+            // on a request that was going to fail anyway.
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            if (dto.Quantity <= 0) throw new Exception("Quantity must be at least 1.");
+
             await _stockLock.WaitAsync();
 
             try
             {
-                // 1. Get the product
+                // 1. Get the product (tracked - we update SoldQuantity/Status on it below).
+                // ProductImages isn't used anywhere in this method, so it's not included -
+                // the final response is built by GetOrderDetailAsync at the end anyway,
+                // which does its own query with the includes it actually needs.
                 var product = await _context.Products
                     .Include(p => p.Shop)
-                    .Include(p => p.ProductImages)
                     .FirstOrDefaultAsync(p =>
                         p.Id == dto.ProductId &&
                         p.Status == "Active" &&
@@ -32,9 +50,9 @@ namespace InventoryZeroAPI.Services
                 if (product == null)
                     throw new Exception("Product not found or no longer available.");
 
-                // Get shop explicitly
-                var shop = await _context.Shops
-                    .FirstOrDefaultAsync(s => s.Id == product.ShopId);
+                // Shop was already loaded above via Include(p => p.Shop) - no need to
+                // query it again separately, it's the same row.
+                var shop = product.Shop;
 
                 if (shop == null)
                     throw new Exception("Shop not found.");
@@ -59,6 +77,7 @@ namespace InventoryZeroAPI.Services
                 if (dto.SavedAddressId.HasValue)
                 {
                     var saved = await _context.UserAddresses
+                        .AsNoTracking()
                         .FirstOrDefaultAsync(a =>
                             a.Id == dto.SavedAddressId.Value &&
                             a.UserId == buyerId);
@@ -131,14 +150,17 @@ namespace InventoryZeroAPI.Services
 
                 _context.OrderItems.Add(orderItem);
 
-                // ✅ FIX: FIRST Save the order to generate the ID
-                await _context.SaveChangesAsync();
-
-                // Now that order has an ID, we can create the payout
+                // Payout links to the order via the navigation property (Order = order)
+                // rather than OrderId = order.Id. The order hasn't been saved yet at this
+                // point, so order.Id is still the temporary/default value - EF's change
+                // tracker resolves the real FK automatically at SaveChanges time as long
+                // as the relationship is set via navigation. That's what lets order,
+                // order item, payout, and the product/shop updates below all go out in
+                // a single SaveChangesAsync instead of two.
                 var payout = new Payout
                 {
                     ShopId = product.ShopId,
-                    OrderId = order.Id, // Now order.Id has a value
+                    Order = order,
                     Amount = sellerPayout,
                     Status = "Pending",
                     CreatedAt = DateTime.Now
@@ -155,13 +177,14 @@ namespace InventoryZeroAPI.Services
                     product.Status = "Out of Stock";
                 }
 
-                
-                
-
                 shop.TotalSales += dto.Quantity;
                 shop.TotalRevenue += sellerPayout;
 
-                // ✅ Save the rest of the changes
+                // Order, order item, payout, and the product/shop counter updates are
+                // one unit of work - committing them together means the DB never ends
+                // up in a state where the order exists but the payout doesn't (or vice
+                // versa), which the previous two-save version could leave behind if the
+                // second SaveChangesAsync failed.
                 await _context.SaveChangesAsync();
 
                 return await GetOrderDetailAsync(order.Id, buyerId)
@@ -175,7 +198,18 @@ namespace InventoryZeroAPI.Services
 
         public async Task<List<OrderSummaryDto>> GetMyOrdersAsync(int buyerId)
         {
+            // Nothing to look up for an invalid buyer id.
+            if (buyerId <= 0) return new List<OrderSummaryDto>();
+
+            // OrderItems and ProductImages are both collections, nested two levels deep
+            // (Order -> OrderItems -> Product -> ProductImages). Loaded as one query,
+            // that shape duplicates every scalar Order/OrderItem column once per image
+            // row. AsSplitQuery() runs it as separate queries instead, avoiding that
+            // row multiplication - worth it here since an order can have several items
+            // and each product can have several images.
             var orders = await _context.Orders
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(o => o.Shop)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
@@ -189,7 +223,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task<OrderDetailDto?> GetOrderDetailAsync(int orderId, int buyerId)
         {
+            if (orderId <= 0 || buyerId <= 0) return null;
+
             var order = await _context.Orders
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(o => o.Shop)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
@@ -252,6 +290,8 @@ namespace InventoryZeroAPI.Services
 
         private OrderSummaryDto MapToSummary(Order o)
         {
+            // All of this operates on data already loaded via Include above -
+            // no additional DB queries happen here.
             var firstItem = o.OrderItems.FirstOrDefault();
             var product = firstItem?.Product;
 

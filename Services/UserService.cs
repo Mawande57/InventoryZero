@@ -16,7 +16,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task<UserProfileDto?> GetProfileAsync(int userId)
         {
+            if (userId <= 0) return null;
+
+            // Read-only - nothing here gets modified or saved.
             var user = await _context.Users
+                .AsNoTracking()
                 .Include(u => u.UserAddresses)
                 .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
 
@@ -27,6 +31,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileDto dto)
         {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+
+            // Tracked (not AsNoTracking) - FullName/PhoneNumber are set directly
+            // below and saved.
             var user = await _context.Users
                 .Include(u => u.UserAddresses)
                 .FirstOrDefaultAsync(u => u.Id == userId);
@@ -42,6 +51,9 @@ namespace InventoryZeroAPI.Services
 
         public async Task<UserAddressDto> AddAddressAsync(int userId, AddAddressDto dto)
         {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+
             // If this is set as default, remove default from others first
             if (dto.IsDefault)
             {
@@ -89,6 +101,9 @@ namespace InventoryZeroAPI.Services
 
         public async Task DeleteAddressAsync(int userId, int addressId)
         {
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+            if (addressId <= 0) throw new ArgumentOutOfRangeException(nameof(addressId));
+
             var address = await _context.UserAddresses
                 .FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
 
@@ -100,6 +115,9 @@ namespace InventoryZeroAPI.Services
 
         public async Task SetDefaultAddressAsync(int userId, int addressId)
         {
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+            if (addressId <= 0) throw new ArgumentOutOfRangeException(nameof(addressId));
+
             // Remove default from all
             var all = await _context.UserAddresses
                 .Where(a => a.UserId == userId)

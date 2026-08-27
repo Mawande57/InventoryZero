@@ -16,45 +16,57 @@ namespace InventoryZeroAPI.Services
 
         public async Task<List<SavedProductDto>> GetSavedAsync(int userId)
         {
-            var saved = await _context.SavedProducts
-                .Include(sp => sp.Product)
-                    .ThenInclude(p => p.Shop)
-                .Include(sp => sp.Product)
-                    .ThenInclude(p => p.Category)
-                .Include(sp => sp.Product)
-                    .ThenInclude(p => p.ProductImages)
+            if (userId <= 0) return new List<SavedProductDto>();
+
+            // Projecting straight to SavedProductDto instead of Include + map
+            // afterward - avoids materializing full Product/Shop/Category/
+            // ProductImages entities just to read a handful of scalar fields off
+            // each. MainImageUrl becomes a small correlated subquery instead of a
+            // join against the whole ProductImages table for every saved item.
+            return await _context.SavedProducts
+                .AsNoTracking()
                 .Where(sp => sp.UserId == userId)
                 .OrderByDescending(sp => sp.CreatedAt)
+                .Select(sp => new SavedProductDto
+                {
+                    Id = sp.Id,
+                    ProductId = sp.Product.Id,
+                    Title = sp.Product.Title,
+                    Slug = sp.Product.Slug,
+                    SalePrice = sp.Product.SalePrice,
+                    OriginalPrice = sp.Product.OriginalPrice,
+                    DiscountPercentage = sp.Product.DiscountPercentage,
+                    RemainingQuantity = sp.Product.Quantity - sp.Product.SoldQuantity,
+                    ListingEndDate = sp.Product.ListingEndDate,
+                    Status = sp.Product.Status,
+                    ShopName = sp.Product.Shop.ShopName,
+                    ShopCity = sp.Product.Shop.City,
+                    CategoryName = sp.Product.Category != null ? sp.Product.Category.Name : null,
+                    SavedAt = sp.CreatedAt,
+                    MainImageUrl = sp.Product.ProductImages
+                        .Where(i => i.IsMain)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault()
+                        ?? sp.Product.ProductImages.Select(i => i.ImageUrl).FirstOrDefault()
+                })
                 .ToListAsync();
-
-            return saved.Select(sp => new SavedProductDto
-            {
-                Id = sp.Id,
-                ProductId = sp.Product.Id,
-                Title = sp.Product.Title,
-                Slug = sp.Product.Slug,
-                SalePrice = sp.Product.SalePrice,
-                OriginalPrice = sp.Product.OriginalPrice,
-                DiscountPercentage = sp.Product.DiscountPercentage,
-                RemainingQuantity = sp.Product.Quantity - sp.Product.SoldQuantity,
-                ListingEndDate = sp.Product.ListingEndDate,
-                Status = sp.Product.Status,
-                ShopName = sp.Product.Shop.ShopName,
-                ShopCity = sp.Product.Shop.City,
-                CategoryName = sp.Product.Category?.Name,
-                SavedAt = sp.CreatedAt,
-                MainImageUrl = sp.Product.ProductImages
-                    .FirstOrDefault(i => i.IsMain)?.ImageUrl
-                    ?? sp.Product.ProductImages.FirstOrDefault()?.ImageUrl
-            }).ToList();
         }
 
         public async Task SaveAsync(int userId, int productId)
         {
+            // Fail fast with a clear message instead of letting a bad id surface
+            // later as a foreign-key constraint violation from SaveChangesAsync.
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+            if (productId <= 0) throw new ArgumentOutOfRangeException(nameof(productId));
+
             // Check if already saved
+            // NOTE: this check-then-insert isn't atomic - two concurrent saves for
+            // the same user/product could both pass this check before either one
+            // commits. A unique constraint on (UserId, ProductId) at the DB level
+            // is the real guard against a duplicate row; this is just a fast path
+            // to avoid the round trip in the common case.
             var exists = await _context.SavedProducts
                 .AnyAsync(sp => sp.UserId == userId && sp.ProductId == productId);
-
             if (exists) return; // already saved, just ignore
 
             var saved = new SavedProduct
@@ -63,7 +75,6 @@ namespace InventoryZeroAPI.Services
                 ProductId = productId,
                 CreatedAt = DateTime.Now
             };
-
             _context.SavedProducts.Add(saved);
 
             // Increment product saves count
@@ -75,10 +86,12 @@ namespace InventoryZeroAPI.Services
 
         public async Task UnsaveAsync(int userId, int productId)
         {
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+            if (productId <= 0) throw new ArgumentOutOfRangeException(nameof(productId));
+
             var saved = await _context.SavedProducts
                 .FirstOrDefaultAsync(sp =>
                     sp.UserId == userId && sp.ProductId == productId);
-
             if (saved == null) return;
 
             _context.SavedProducts.Remove(saved);
