@@ -95,6 +95,7 @@ async function loadProfile() {
 }
 
 // ── LOAD ORDERS ──────────────────────────────────────────
+// ── LOAD ORDERS ──────────────────────────────────────────
 async function loadOrders() {
     try {
         const res = await fetch(`${API}/orders`, { headers: authHeaders() });
@@ -103,47 +104,48 @@ async function loadOrders() {
         // Update stat
         document.getElementById('stat-orders').textContent = orders.length;
 
-        // Calculate total spent
+        // ✅ Calculate total spent - EXCLUDE cancelled orders
         const spent = orders
-            .filter(o => o.paymentStatus === 'Paid')
+            .filter(o => o.paymentStatus === 'Paid' && o.orderStatus !== 'Cancelled')
             .reduce((sum, o) => sum + o.totalAmount, 0);
         document.getElementById('stat-spent').textContent = fmt(spent);
 
         if (orders.length === 0) {
             document.getElementById('orders-list').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📦</div>
-          <h3>No orders yet</h3>
-          <p>Find amazing deals and place your first order</p>
-          <button class="btn-start" onclick="window.location.href='/pages/browse.html'">
-            Browse deals
-          </button>
-        </div>`;
+                <div class="empty-state">
+                    <div class="empty-icon">📦</div>
+                    <h3>No orders yet</h3>
+                    <p>Find amazing deals and place your first order</p>
+                    <button class="btn-start" onclick="window.location.href='/pages/browse.html'">
+                        Browse deals
+                    </button>
+                </div>`;
             return;
         }
 
-        // Show latest 5 orders
+        // ✅ Only show recent non-cancelled orders (or show all, but mark cancelled)
         const recent = orders.slice(0, 5);
         document.getElementById('orders-list').innerHTML = recent.map(o => `
-      <div class="order-item" onclick="window.location.href='/pages/order-detail.html?id=${o.id}'">
-        <div class="order-img" style="background:${CAT_COLORS[o.categoryName] || '#f5f5f3'}">
-          ${EMOJIS[o.categoryName] || '📦'}
-        </div>
-        <div class="order-info">
-          <div class="order-title">${o.productTitle}</div>
-          <div class="order-meta">
-            <span>${o.shopName}</span>
-            <span>·</span>
-            <span class="order-num">${o.orderNumber}</span>
-            <span>·</span>
-            <span>${new Date(o.createdAt).toLocaleDateString('en-ZA')}</span>
-          </div>
-        </div>
-        <div class="order-right">
-          <div class="order-amount">${fmt(o.totalAmount)}</div>
-          <div class="status-badge ${statusClass(o.orderStatus)}">${o.orderStatus}</div>
-        </div>
-      </div>`).join('');
+            <div class="order-item" onclick="window.location.href='/pages/order-detail.html?id=${o.id}'">
+                <div class="order-img" style="background:${CAT_COLORS[o.categoryName] || '#f5f5f3'}">
+                    ${EMOJIS[o.categoryName] || '📦'}
+                </div>
+                <div class="order-info">
+                    <div class="order-title">${o.productTitle}</div>
+                    <div class="order-meta">
+                        <span>${o.shopName}</span>
+                        <span>·</span>
+                        <span class="order-num">${o.orderNumber}</span>
+                        <span>·</span>
+                        <span>${new Date(o.createdAt).toLocaleDateString('en-ZA')}</span>
+                    </div>
+                </div>
+                <div class="order-right">
+                    <div class="order-amount">${fmt(o.totalAmount)}</div>
+                    <div class="status-badge ${statusClass(o.orderStatus)}">${o.orderStatus}</div>
+                </div>
+            </div>
+        `).join('');
 
     } catch (e) {
         console.error('Could not load orders', e);

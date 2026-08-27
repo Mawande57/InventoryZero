@@ -785,3 +785,23 @@
         border-color: rgba(255,0,0,0.3);
         color: #ff6b6b;
     }
+/* ── SHOP STATUS COLORS ────────────────────────────────── */
+.shop-card-status.active {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.shop-card-status.pending {
+    background: #FEF3C7;
+    color: #B45309;
+}
+
+.shop-card-status.rejected {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.shop-card-status.inactive {
+    background: #FEE2E2;
+    color: #991B1B;
+}

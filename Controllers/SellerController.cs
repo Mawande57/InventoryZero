@@ -137,7 +137,7 @@ namespace InventoryZeroAPI.Controllers
         // DELETE api/seller/products/{id}
         // DELETE api/seller/products/{id}
         [HttpDelete("products/{id}")]
-        public async Task<IActionResult> DeleteProduct([FromForm] int id)
+        public async Task<IActionResult> DeleteProduct( int id)
         {
             try
             {

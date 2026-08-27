@@ -18,54 +18,80 @@ namespace InventoryZeroAPI.Services
 
         public async Task<AdminStatsDto> GetStatsAsync()
         {
-            // ✅ Exclude Admin from users
-            var users = await _context.Users
-                .Where(u => u.Role != "Admin")
-                .ToListAsync();
+            // These used to load the full Users/Shops/Products/Orders/Payouts tables into memory
+            // just to call Count()/Sum() on them in C#. That drags every column of every row over
+            // the wire for a dashboard that only needs a handful of numbers. Doing the aggregation
+            // in SQL instead means the DB does the counting/summing and we only get scalars back.
 
-            // ✅ Sellers = Users who have at least one shop
-            var userIdsWithShops = await _context.Shops
-                .Where(s => s.Status == "Active" && s.IsVerified == true)
-                .Select(s => s.UserId)
-                .Distinct()
-                .ToListAsync();
+            var totalUsers = await _context.Users
+                .AsNoTracking()
+                .CountAsync(u => u.Role != "Admin");
 
-            var sellers = users.Where(u => userIdsWithShops.Contains(u.Id)).ToList();
+            // Seller = a non-admin user who owns at least one active & verified shop.
+            // EXISTS-style subquery avoids materializing both sets and intersecting in memory.
+            var totalSellers = await _context.Users
+                .AsNoTracking()
+                .CountAsync(u => u.Role != "Admin" &&
+                    _context.Shops.Any(s => s.UserId == u.Id && s.Status == "Active" && s.IsVerified == true));
 
-            var shops = await _context.Shops
-                .Where(s => s.Status == "Active" && s.IsVerified == true)
-                .ToListAsync();
+            var totalShops = await _context.Shops
+                .AsNoTracking()
+                .CountAsync(s => s.Status == "Active" && s.IsVerified == true);
 
             var pendingShops = await _context.Shops
-                .Where(s => s.Status == "Pending")
-                .ToListAsync();
+                .AsNoTracking()
+                .CountAsync(s => s.Status == "Pending");
 
-            var products = await _context.Products
-                .Where(p => p.Status == "Active")
-                .ToListAsync();
+            var totalProducts = await _context.Products
+                .AsNoTracking()
+                .CountAsync(p => p.Status == "Active");
 
-            var orders = await _context.Orders.ToListAsync();
-            var payouts = await _context.Payouts.ToListAsync();
-            var disputes = await _context.Disputes.ToListAsync();
+            var totalOrders = await _context.Orders
+                .AsNoTracking()
+                .CountAsync();
+
+            var totalRevenue = await _context.Orders
+                .AsNoTracking()
+                .SumAsync(o => o.TotalAmount);
+
+            var platformFees = await _context.Orders
+                .AsNoTracking()
+                .Where(o => o.OrderStatus != "Cancelled")
+                .SumAsync(o => o.PlatformFee);
+
+            var pendingPayouts = await _context.Payouts
+                .AsNoTracking()
+                .Where(p => p.Status == "Pending" && p.Order.OrderStatus != "Cancelled")
+                .SumAsync(p => p.Amount);
+
+            var disputesOpen = await _context.Disputes
+                .AsNoTracking()
+                .CountAsync(d => d.Status == "Open");
 
             return new AdminStatsDto
             {
-                TotalUsers = users.Count,
-                TotalSellers = sellers.Count,  // ✅ Users with shops
-                TotalShops = shops.Count,
-                PendingShops = pendingShops.Count,
-                TotalProducts = products.Count,
-                TotalOrders = orders.Count,
-                TotalRevenue = orders.Sum(o => o.TotalAmount),
-                PlatformFees = orders.Sum(o => o.PlatformFee),
-                PendingPayouts = payouts.Where(p => p.Status == "Pending").Sum(p => p.Amount),
-                DisputesOpen = disputes.Count(d => d.Status == "Open")
+                TotalUsers = totalUsers,
+                TotalSellers = totalSellers,
+                TotalShops = totalShops,
+                PendingShops = pendingShops,
+                TotalProducts = totalProducts,
+                TotalOrders = totalOrders,
+                TotalRevenue = totalRevenue,
+                PlatformFees = platformFees,
+                PendingPayouts = pendingPayouts,
+                DisputesOpen = disputesOpen
             };
         }
 
         public async Task<PagedResultDto<AdminShopDto>> GetShopsAsync(string? status, int page, int pageSize)
         {
+            // Fail fast on bad paging input instead of letting Skip() blow up further down
+            // with a less obvious exception once the query actually hits the DB.
+            if (page < 1) throw new ArgumentOutOfRangeException(nameof(page), "Page must be 1 or greater.");
+            if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be 1 or greater.");
+
             var query = _context.Shops
+                .AsNoTracking()
                 .Include(s => s.User)
                 .AsQueryable();
 
@@ -79,6 +105,16 @@ namespace InventoryZeroAPI.Services
                 .Take(pageSize)
                 .ToListAsync();
 
+            // Was previously one Products.Count() query per shop in the page (N+1).
+            // Batch it into a single grouped query for the shop ids we actually loaded.
+            var shopIds = shops.Select(s => s.Id).ToList();
+            var productCounts = await _context.Products
+                .AsNoTracking()
+                .Where(p => shopIds.Contains(p.ShopId) && p.Status == "Active")
+                .GroupBy(p => p.ShopId)
+                .Select(g => new { ShopId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.ShopId, x => x.Count);
+
             var items = shops.Select(s => new AdminShopDto
             {
                 Id = s.Id,
@@ -89,7 +125,7 @@ namespace InventoryZeroAPI.Services
                 Status = s.Status,
                 IsVerified = s.IsVerified,
                 CreatedAt = s.CreatedAt,
-                TotalProducts = _context.Products.Count(p => p.ShopId == s.Id && p.Status == "Active"),
+                TotalProducts = productCounts.TryGetValue(s.Id, out var count) ? count : 0,
                 TotalSales = s.TotalSales,
                 TotalRevenue = s.TotalRevenue,
                 OwnerName = s.User.FullName,
@@ -112,7 +148,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task<AdminShopDto?> GetShopDetailAsync(int id)
         {
+            // No point hitting the DB for a shop id that can't possibly exist.
+            if (id <= 0) return null;
+
             var shop = await _context.Shops
+                .AsNoTracking()
                 .Include(s => s.User)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -128,7 +168,7 @@ namespace InventoryZeroAPI.Services
                 Status = shop.Status,
                 IsVerified = shop.IsVerified,
                 CreatedAt = shop.CreatedAt,
-                TotalProducts = await _context.Products.CountAsync(p => p.ShopId == shop.Id && p.Status == "Active"),
+                TotalProducts = await _context.Products.AsNoTracking().CountAsync(p => p.ShopId == shop.Id && p.Status == "Active"),
                 TotalSales = shop.TotalSales,
                 TotalRevenue = shop.TotalRevenue,
                 OwnerName = shop.User.FullName,
@@ -143,6 +183,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task ApproveShopAsync(int shopId, int adminId, ShopApprovalDto dto)
         {
+            // Guard clause up front so a missing dto fails with a clear message
+            // instead of a NullReferenceException on dto.Notes below.
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+
+            // Intentionally tracked (not AsNoTracking) - we're mutating this entity.
             var shop = await _context.Shops.FindAsync(shopId);
             if (shop == null)
                 throw new Exception("Shop not found.");
@@ -168,6 +213,7 @@ namespace InventoryZeroAPI.Services
 
         public async Task RejectShopAsync(int shopId, int adminId, string reason)
         {
+            // Intentionally tracked - we're mutating this entity.
             var shop = await _context.Shops.FindAsync(shopId);
             if (shop == null)
                 throw new Exception("Shop not found.");
@@ -190,7 +236,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task<PagedResultDto<AdminUserDto>> GetUsersAsync(string? role, int page, int pageSize)
         {
+            if (page < 1) throw new ArgumentOutOfRangeException(nameof(page), "Page must be 1 or greater.");
+            if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be 1 or greater.");
+
             var query = _context.Users
+                .AsNoTracking()
                 .Where(u => u.Role != "Admin")
                 .AsQueryable();
 
@@ -205,25 +255,48 @@ namespace InventoryZeroAPI.Services
                 .ToListAsync();
 
             var userIds = users.Select(u => u.Id).ToList();
+
+            // Shop count per user, batched for the whole page in one query.
             var shopCounts = await _context.Shops
+                .AsNoTracking()
                 .Where(s => userIds.Contains(s.UserId))
                 .GroupBy(s => s.UserId)
                 .Select(g => new { UserId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.UserId, x => x.Count);
 
-            var items = users.Select(u => new AdminUserDto
+            // TotalOrders/TotalSpent used to be two separate queries PER USER in the page
+            // (Orders.Count + Orders.Where(Paid).Sum), which is an N+1 on top of an N+1.
+            // One grouped query gets both numbers for every user in the page at once.
+            var orderStats = await _context.Orders
+                .AsNoTracking()
+                .Where(o => userIds.Contains(o.BuyerId))
+                .GroupBy(o => o.BuyerId)
+                .Select(g => new
+                {
+                    BuyerId = g.Key,
+                    TotalOrders = g.Count(),
+                    TotalSpent = g.Sum(o => o.PaymentStatus == "Paid" ? o.TotalAmount : 0)
+                })
+                .ToDictionaryAsync(x => x.BuyerId, x => x);
+
+            var items = users.Select(u =>
             {
-                Id = u.Id,
-                FullName = u.FullName,
-                Email = u.Email,
-                Role = u.Role,
-                IsActive = u.IsActive,
-                IsEmailVerified = u.IsEmailVerified,
-                CreatedAt = u.CreatedAt,
-                LastLoginAt = u.LastLoginAt,
-                TotalOrders = _context.Orders.Count(o => o.BuyerId == u.Id),
-                TotalSpent = _context.Orders.Where(o => o.BuyerId == u.Id && o.PaymentStatus == "Paid").Sum(o => o.TotalAmount),
-                TotalShops = shopCounts.ContainsKey(u.Id) ? shopCounts[u.Id] : 0
+                var stats = orderStats.GetValueOrDefault(u.Id);
+
+                return new AdminUserDto
+                {
+                    Id = u.Id,
+                    FullName = u.FullName,
+                    Email = u.Email,
+                    Role = u.Role,
+                    IsActive = u.IsActive,
+                    IsEmailVerified = u.IsEmailVerified,
+                    CreatedAt = u.CreatedAt,
+                    LastLoginAt = u.LastLoginAt,
+                    TotalOrders = stats?.TotalOrders ?? 0,
+                    TotalSpent = stats?.TotalSpent ?? 0,
+                    TotalShops = shopCounts.TryGetValue(u.Id, out var shopCount) ? shopCount : 0
+                };
             }).ToList();
 
             return new PagedResultDto<AdminUserDto>
@@ -237,16 +310,30 @@ namespace InventoryZeroAPI.Services
 
         public async Task ToggleUserStatusAsync(int userId)
         {
+            // 1. Get the user
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
                 throw new Exception("User not found.");
 
+            // 2. Check if user has any pending or processing orders
+            var hasActiveOrders = await _context.Orders
+                .AnyAsync(o =>
+                    o.BuyerId == userId &&
+                    (o.OrderStatus == "Pending" || o.OrderStatus == "Processing")
+                );
+
+            // 3. If trying to DEACTIVATE (IsActive is true → becoming false)
+            if (user.IsActive && hasActiveOrders)
+                throw new Exception("Cannot deactivate a user with pending or processing orders.");
+
+            // 4. Toggle status
             user.IsActive = !user.IsActive;
             await _context.SaveChangesAsync();
         }
 
         public async Task ChangeUserRoleAsync(int userId, string role)
         {
+            // Already fails before touching the DB if the role is invalid - left as-is.
             var validRoles = new[] { "Buyer", "Seller", "Admin" };
             if (!validRoles.Contains(role))
                 throw new Exception("Invalid role.");
@@ -261,7 +348,14 @@ namespace InventoryZeroAPI.Services
 
         public async Task<PagedResultDto<AdminProductDto>> GetProductsAsync(string? status, int page, int pageSize)
         {
+            if (page < 1) throw new ArgumentOutOfRangeException(nameof(page), "Page must be 1 or greater.");
+            if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be 1 or greater.");
+
+            // Shop and Category are many-to-one references, not collections, so there's no
+            // cartesian-product row blowup here - a plain Include (single SQL join) is fine
+            // and AsSplitQuery() would just add an extra round trip for no benefit.
             var query = _context.Products
+                .AsNoTracking()
                 .Include(p => p.Shop)
                 .Include(p => p.Category)
                 .AsQueryable();
@@ -316,7 +410,11 @@ namespace InventoryZeroAPI.Services
 
         public async Task<PagedResultDto<AdminOrderDto>> GetOrdersAsync(string? status, int page, int pageSize)
         {
+            if (page < 1) throw new ArgumentOutOfRangeException(nameof(page), "Page must be 1 or greater.");
+            if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be 1 or greater.");
+
             var query = _context.Orders
+                .AsNoTracking()
                 .Include(o => o.Buyer)
                 .Include(o => o.Shop)
                 .AsQueryable();
@@ -360,10 +458,16 @@ namespace InventoryZeroAPI.Services
 
         public async Task<PagedResultDto<AdminPayoutDto>> GetPayoutsAsync(string? status, int page, int pageSize)
         {
+            if (page < 1) throw new ArgumentOutOfRangeException(nameof(page), "Page must be 1 or greater.");
+            if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be 1 or greater.");
+
             var query = _context.Payouts
+                .AsNoTracking()
                 .Include(p => p.Shop)
+                    .ThenInclude(s => s.User)  // ✅ ADD THIS - loads Shop.User
                 .Include(p => p.Order)
-                .ThenInclude(o => o.Buyer)
+                    .ThenInclude(o => o.Buyer)
+                .Where(p => p.Order.OrderStatus != "Cancelled")
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(status))
@@ -382,7 +486,7 @@ namespace InventoryZeroAPI.Services
                 Amount = p.Amount,
                 Status = p.Status,
                 ShopName = p.Shop?.ShopName ?? "Unknown Shop",
-                ShopOwner = p.Shop?.User?.FullName ?? "Unknown",
+                ShopOwner = p.Shop?.User?.FullName ?? "Unknown",  // ✅ Now this works!
                 OrderNumber = p.Order?.OrderNumber ?? "N/A",
                 CreatedAt = p.CreatedAt,
                 ProcessedAt = p.ProcessedAt,
@@ -398,12 +502,23 @@ namespace InventoryZeroAPI.Services
                 PageSize = pageSize
             };
         }
-
         public async Task<object> ProcessPendingPayoutsAsync()
         {
             var pending = await _context.Payouts
-                .Where(p => p.Status == "Pending")
+                .Where(p => p.Status == "Pending" && p.Order.OrderStatus != "Cancelled")
                 .ToListAsync();
+
+            // Nothing to do - skip the SaveChangesAsync round trip entirely rather than
+            // opening a transaction for zero updates.
+            if (pending.Count == 0)
+            {
+                return new
+                {
+                    Processed = 0,
+                    TotalAmount = 0m,
+                    Message = $"{0} payouts processed totaling {0m:C}"
+                };
+            }
 
             var processed = 0;
             var totalAmount = 0m;

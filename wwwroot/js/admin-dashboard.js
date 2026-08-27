@@ -328,7 +328,7 @@ async function toggleUser(id) {
         if (res.ok) {
             loadUsers(usersPage);
         } else {
-            alert('Could not toggle user status.');
+            alert("Can not deactivate a user with orders in proccess ");
         }
     } catch (e) {
         console.error('Toggle error:', e);

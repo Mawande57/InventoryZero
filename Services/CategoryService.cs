@@ -18,60 +18,67 @@ namespace InventoryZeroAPI.Services
 
         public async Task<List<CategoryDto>> GetAllAsync()
         {
-            // Get only parent categories (no parent themselves)
-            // and include their children
-            var categories = await _context.Categories
+            // Projecting straight to CategoryDto (instead of Include + manual mapping
+            // afterward) lets EF generate SQL that only pulls the columns the DTO
+            // actually uses - subcategories never touch Description/IsActive/etc,
+            // so those columns are never fetched for them. Nothing is tracked either,
+            // since none of this gets modified.
+            //
+            // Note: subcategories aren't filtered by IsActive here, same as the
+            // original - if a child category gets deactivated it'll still show up
+            // under its parent. Flagging it, not changing it.
+            return await _context.Categories
+                .AsNoTracking()
                 .Where(c => c.IsActive && c.ParentCategoryId == null)
-                .Include(c => c.InverseParentCategory) // this is the children
                 .OrderBy(c => c.SortOrder)
-                .ToListAsync();
-
-            return categories.Select(c => new CategoryDto
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Slug = c.Slug,
-                Description = c.Description,
-                IconUrl = c.IconUrl,
-                ParentCategoryId = c.ParentCategoryId,
-                SortOrder = c.SortOrder,
-                SubCategories = c.InverseParentCategory.Select(sub => new CategoryDto
+                .Select(c => new CategoryDto
                 {
-                    Id = sub.Id,
-                    Name = sub.Name,
-                    Slug = sub.Slug,
-                    IconUrl = sub.IconUrl,
-                    SortOrder = sub.SortOrder
-                }).ToList()
-            }).ToList();
+                    Id = c.Id,
+                    Name = c.Name,
+                    Slug = c.Slug,
+                    Description = c.Description,
+                    IconUrl = c.IconUrl,
+                    ParentCategoryId = c.ParentCategoryId,
+                    SortOrder = c.SortOrder,
+                    SubCategories = c.InverseParentCategory.Select(sub => new CategoryDto
+                    {
+                        Id = sub.Id,
+                        Name = sub.Name,
+                        Slug = sub.Slug,
+                        IconUrl = sub.IconUrl,
+                        SortOrder = sub.SortOrder
+                    }).ToList()
+                })
+                .ToListAsync();
         }
 
         public async Task<CategoryDto?> GetByIdAsync(int id)
         {
-            var c = await _context.Categories
-                .Include(c => c.InverseParentCategory)
-                .FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
+            // No point round-tripping to the DB for an id that can't exist.
+            if (id <= 0) return null;
 
-            if (c == null) return null;
-
-            return new CategoryDto
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Slug = c.Slug,
-                Description = c.Description,
-                IconUrl = c.IconUrl,
-                ParentCategoryId = c.ParentCategoryId,
-                SortOrder = c.SortOrder,
-                SubCategories = c.InverseParentCategory.Select(sub => new CategoryDto
+            return await _context.Categories
+                .AsNoTracking()
+                .Where(c => c.Id == id && c.IsActive)
+                .Select(c => new CategoryDto
                 {
-                    Id = sub.Id,
-                    Name = sub.Name,
-                    Slug = sub.Slug,
-                    IconUrl = sub.IconUrl,
-                    SortOrder = sub.SortOrder
-                }).ToList()
-            };
+                    Id = c.Id,
+                    Name = c.Name,
+                    Slug = c.Slug,
+                    Description = c.Description,
+                    IconUrl = c.IconUrl,
+                    ParentCategoryId = c.ParentCategoryId,
+                    SortOrder = c.SortOrder,
+                    SubCategories = c.InverseParentCategory.Select(sub => new CategoryDto
+                    {
+                        Id = sub.Id,
+                        Name = sub.Name,
+                        Slug = sub.Slug,
+                        IconUrl = sub.IconUrl,
+                        SortOrder = sub.SortOrder
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync();
         }
     }
 }

@@ -77,7 +77,7 @@
             <div class="quick-stats" id="quick-stats">
                 <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Total Orders</div></div>
                 <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Platform Fees</div></div>
-                <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Pending Payouts</div></div>
+                <div class="qs-card"><div class="qs-num">—</div><div class="qs-label"> Payouts</div></div>
                 <div class="qs-card"><div class="qs-num">—</div><div class="qs-label">Open Disputes</div></div>
             </div>
             <div class="recent-section">
@@ -96,7 +96,7 @@
                         <option value="Pending">Pending Approval</option>
                         <option value="Active">Active</option>
                         <option value="Rejected">Rejected</option>
-                        <option value="Inactive">Inactive</option>
+                        
                     </select>
                 </div>
             </div>
@@ -114,9 +114,7 @@
                 <div class="filter-group">
                     <select id="user-role-filter" onchange="loadUsers()">
                         <option value="">All Users</option>
-                        <option value="Buyer">Buyers</option>
-                        <option value="Seller">Sellers</option>
-                        <option value="Admin">Admins</option>
+                       
                     </select>
                 </div>
             </div>
@@ -153,7 +151,6 @@
                 <div class="filter-group">
                     <select id="order-status-filter" onchange="loadAdminOrders()">
                         <option value="">All Orders</option>
-                        <option value="Pending">Pending</option>
                         <option value="Processing">Processing</option>
                         <option value="Shipped">Shipped</option>
                         <option value="Delivered">Delivered</option>
@@ -175,13 +172,9 @@
                 <div class="filter-group">
                     <select id="payout-status-filter" onchange="loadPayouts()">
                         <option value="">All Payouts</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Failed">Failed</option>
+
                     </select>
-                    <button class="btn-primary" onclick="processPayouts()">
-                        <i class="ti ti-credit-card"></i> Process Pending
-                    </button>
+                    
                 </div>
             </div>
             <div id="payouts-list">

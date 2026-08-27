@@ -25,12 +25,15 @@ namespace InventoryZeroAPI.Services
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
         {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+
+            // AnyAsync translates straight to an EXISTS query - cheap, and lets us
+            // fail before we ever touch BCrypt or open an insert.
             var exists = await _context.Users.AnyAsync(u => u.Email == dto.Email);
             if (exists)
                 throw new Exception("Email already registered.");
 
             var hash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
             var user = new User
             {
                 FullName = dto.FullName,
@@ -41,17 +44,19 @@ namespace InventoryZeroAPI.Services
                 CreatedAt = DateTime.Now,
                 IsActive = true
             };
+
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Brand new user, so this is always false — but keep it explicit for clarity
-            var hasShop = await _context.Shops.AnyAsync(s => s.UserId == user.Id);
-
-            return GenerateResponse(user);
+            // A brand-new account can't own a shop yet - pass false straight in
+            // instead of running a Shops query that can only ever come back empty.
+            return GenerateResponse(user, hasShop: false);
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
         {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
             if (user == null)
                 throw new Exception("Invalid email or password.");
@@ -60,21 +65,32 @@ namespace InventoryZeroAPI.Services
             if (!valid)
                 throw new Exception("Invalid email or password.");
 
-            user.LastLoginAt = DateTime.Now;
-            await _context.SaveChangesAsync();
+            if (!user.IsActive)
+                throw new Exception("The Admin deActivated your account for malicious activity contact the admin");
 
+            user.LastLoginAt = DateTime.Now;
+
+            // Computed once here and passed into GenerateResponse - previously this was
+            // queried a second time (synchronously, blocking a thread) inside that method.
             var hasShop = await _context.Shops.AnyAsync(s => s.UserId == user.Id);
 
-            return GenerateResponse(user);
+            await _context.SaveChangesAsync();
+
+            return GenerateResponse(user, hasShop);
         }
 
-        // Builds the JWT token and response
-        private AuthResponseDto GenerateResponse(User user)
+        // Builds the JWT token and response.
+        // hasShop is passed in rather than queried here - this method used to run
+        // _context.Shops.Any(...) synchronously (sync-over-async), which blocks a
+        // thread pool thread on every login/register and duplicated a query the
+        // callers had usually already made (or, for Register, didn't need at all).
+        private AuthResponseDto GenerateResponse(User user, bool hasShop)
         {
-            var hasShop =  _context.Shops.Any(s => s.UserId == user.Id);
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+            var jwtKey = _config["Jwt:Key"];
+            if (string.IsNullOrEmpty(jwtKey))
+                throw new InvalidOperationException("JWT signing key is not configured (Jwt:Key).");
 
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             // Claims are what we EMBED inside the token

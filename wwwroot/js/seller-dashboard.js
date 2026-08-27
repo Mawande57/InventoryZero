@@ -247,21 +247,38 @@ async function loadSellerShops() {
             return;
         }
 
-        list.innerHTML = shops.map(s => `
-            <div class="shop-card">
-                <div class="shop-card-avatar">🏪</div>
-                <div class="shop-card-info">
-                    <div class="shop-card-name">${s.shopName}</div>
-                    <div class="shop-card-meta">
-                        ${s.city || 'No location'} · ${s.isVerified ? '✅ Verified' : '⏳ Pending approval'}
+        list.innerHTML = shops.map(s => {
+            // ✅ Determine status display
+            let statusText = s.status || 'Pending';
+            let statusClass = s.status?.toLowerCase() || 'pending';
+            let verifiedText = '';
+
+            if (s.status === 'Active' && s.isVerified) {
+                verifiedText = '✅ Verified';
+            } else if (s.status === 'Pending') {
+                verifiedText = '⏳ Pending approval';
+            } else if (s.status === 'Rejected') {
+                verifiedText = '❌ Rejected';
+            } else if (s.status === 'Inactive') {
+                verifiedText = '⛔ Inactive';
+            }
+
+            return `
+                <div class="shop-card">
+                    <div class="shop-card-avatar">🏪</div>
+                    <div class="shop-card-info">
+                        <div class="shop-card-name">${s.shopName}</div>
+                        <div class="shop-card-meta">
+                            ${s.city || 'No location'} · ${verifiedText}
+                        </div>
                     </div>
+                    <span class="shop-card-status ${statusClass}">${statusText}</span>
+                    <button class="btn-small primary" onclick="window.location.href='/pages/shop-profile.html?id=${s.id}'">
+                        View Shop
+                    </button>
                 </div>
-                <span class="shop-card-status ${s.status?.toLowerCase() || 'pending'}">${s.status || 'Pending'}</span>
-                <button class="btn-small primary" onclick="window.location.href='/pages/shop-profile.html?id=${s.id}'">
-                    View Shop
-                </button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
     } catch (e) {
         console.error('Shops error:', e);
