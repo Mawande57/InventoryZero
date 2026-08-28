@@ -17,14 +17,24 @@ namespace InventoryZeroAPI.Controllers
             _savedProductService = savedProductService;
         }
 
-        private int GetUserId() =>
-            int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        // Was int.Parse(...) with the null-forgiving operator - a missing or
+        // malformed claim would throw an unhandled exception instead of a clean
+        // response. TryGetUserId fails safely instead.
+        private bool TryGetUserId(out int userId)
+        {
+            userId = 0;
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return !string.IsNullOrEmpty(claim) && int.TryParse(claim, out userId);
+        }
 
         // GET api/saved-products
         [HttpGet]
         public async Task<IActionResult> GetSaved()
         {
-            var result = await _savedProductService.GetSavedAsync(GetUserId());
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
+            var result = await _savedProductService.GetSavedAsync(userId);
             return Ok(result);
         }
 
@@ -32,9 +42,12 @@ namespace InventoryZeroAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> Save([FromBody] int productId)
         {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
             try
             {
-                await _savedProductService.SaveAsync(GetUserId(), productId);
+                await _savedProductService.SaveAsync(userId, productId);
                 return Ok(new { message = "Product saved." });
             }
             catch (Exception ex)
@@ -47,9 +60,12 @@ namespace InventoryZeroAPI.Controllers
         [HttpDelete("{productId}")]
         public async Task<IActionResult> Unsave(int productId)
         {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
             try
             {
-                await _savedProductService.UnsaveAsync(GetUserId(), productId);
+                await _savedProductService.UnsaveAsync(userId, productId);
                 return Ok(new { message = "Product removed from saved." });
             }
             catch (Exception ex)

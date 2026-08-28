@@ -1,5 +1,4 @@
 ﻿using InventoryZeroAPI.DTOs.Products;
-
 using InventoryZeroAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -22,8 +21,17 @@ namespace InventoryZeroAPI.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] ProductFilterDto filter)
         {
-            var result = await _productService.GetAllAsync(filter);
-            return Ok(result);
+            try
+            {
+                var result = await _productService.GetAllAsync(filter);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                // Covers the page/pageSize guard clauses in ProductService -
+                // anything else is unexpected and should still surface as a 500.
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         // GET api/products/winter-jacket-cape-town
@@ -32,10 +40,8 @@ namespace InventoryZeroAPI.Controllers
         public async Task<IActionResult> GetBySlug(string slug)
         {
             var product = await _productService.GetBySlugAsync(slug);
-
             if (product == null)
                 return NotFound(new { message = "Product not found." });
-
             return Ok(product);
         }
 
