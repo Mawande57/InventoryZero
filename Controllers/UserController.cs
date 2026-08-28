@@ -18,15 +18,24 @@ namespace InventoryZeroAPI.Controllers
             _userService = userService;
         }
 
-        // Gets the logged in user's ID from the JWT token
-        private int GetUserId() =>
-            int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        // Was int.Parse(...) with the null-forgiving operator - a missing or
+        // malformed claim would throw an unhandled exception instead of a clean
+        // response. TryGetUserId fails safely instead.
+        private bool TryGetUserId(out int userId)
+        {
+            userId = 0;
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return !string.IsNullOrEmpty(claim) && int.TryParse(claim, out userId);
+        }
 
         // GET api/user/profile
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
-            var profile = await _userService.GetProfileAsync(GetUserId());
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
+            var profile = await _userService.GetProfileAsync(userId);
             if (profile == null) return NotFound();
             return Ok(profile);
         }
@@ -35,9 +44,12 @@ namespace InventoryZeroAPI.Controllers
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
         {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
             try
             {
-                var result = await _userService.UpdateProfileAsync(GetUserId(), dto);
+                var result = await _userService.UpdateProfileAsync(userId, dto);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -50,9 +62,12 @@ namespace InventoryZeroAPI.Controllers
         [HttpPost("addresses")]
         public async Task<IActionResult> AddAddress([FromBody] AddAddressDto dto)
         {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
             try
             {
-                var result = await _userService.AddAddressAsync(GetUserId(), dto);
+                var result = await _userService.AddAddressAsync(userId, dto);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -65,9 +80,12 @@ namespace InventoryZeroAPI.Controllers
         [HttpDelete("addresses/{id}")]
         public async Task<IActionResult> DeleteAddress(int id)
         {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
             try
             {
-                await _userService.DeleteAddressAsync(GetUserId(), id);
+                await _userService.DeleteAddressAsync(userId, id);
                 return Ok(new { message = "Address deleted." });
             }
             catch (Exception ex)
@@ -80,9 +98,12 @@ namespace InventoryZeroAPI.Controllers
         [HttpPut("addresses/{id}/default")]
         public async Task<IActionResult> SetDefault(int id)
         {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { message = "Could not identify the current user." });
+
             try
             {
-                await _userService.SetDefaultAddressAsync(GetUserId(), id);
+                await _userService.SetDefaultAddressAsync(userId, id);
                 return Ok(new { message = "Default address updated." });
             }
             catch (Exception ex)
