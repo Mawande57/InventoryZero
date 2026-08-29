@@ -30,8 +30,28 @@ let state = {
 
 let savedIds = new Set();
 
+// Holds the currently-rendered page of deals so the card click handler can
+// look a product up by id instead of carrying the whole product as JSON
+// inside an HTML attribute (see loadDeals/openModalById below for why).
+let currentDeals = [];
+
 // ── HELPERS ──────────────────────────────────────────────
 function fmt(n) { return 'R' + Number(n).toLocaleString('en-ZA'); }
+
+// Anything rendered via innerHTML has to go through this first. Product
+// titles, shop names, category names etc. all come from data other users
+// typed in (a seller sets their own shop/product name), so treating them as
+// trusted HTML would let a malicious value execute script in the browser of
+// anyone browsing the storefront - not just admins, every buyer.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function daysLeft(dateStr) {
     const diff = new Date(dateStr) - new Date();
@@ -114,8 +134,12 @@ function checkAuth() {
         }
     }
 
+    // user.fullName is only ever the current session's own name reflected
+    // back to them, but it's still user-editable data (via the profile page)
+    // so it gets escaped the same as everything else rather than trusted
+    // just because it "belongs" to the viewer.
     navRight.innerHTML = `
-        <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${user.fullName.split(' ')[0]}</span>
+        <span style="font-size:13px;color:rgba(255,255,255,0.6)">Hi, ${escapeHtml(user.fullName.split(' ')[0])}</span>
         ${dashboardLinks}`;
 }
 
@@ -164,9 +188,13 @@ function updateActiveTags() {
     if (state.minPrice) tags.push({ label: 'Min R' + state.minPrice, key: 'minPrice' });
     if (state.maxPrice) tags.push({ label: 'Max R' + state.maxPrice, key: 'maxPrice' });
 
+    // state.search and state.categorySlug can both be set straight from the
+    // URL query string at page load (see INIT below) - a link like
+    // "?search=<img src=x onerror=...>" would otherwise execute for anyone
+    // who opens it, not just someone attacking their own browser.
     document.getElementById('active-filters').innerHTML = tags.map(t => `
         <div class="filter-tag" onclick="removeTag('${t.key}')">
-            ${t.label} <i class="ti ti-x" aria-hidden="true"></i>
+            ${escapeHtml(t.label)} <i class="ti ti-x" aria-hidden="true"></i>
         </div>`).join('');
 }
 
@@ -193,12 +221,9 @@ function removeTag(key) {
 
 // ── LOAD CATEGORIES ──────────────────────────────────────
 async function loadCategories() {
-    console.log('📡 Loading categories...');
     try {
         const res = await fetch(`${API}/categories`);
-        console.log('📡 Categories response status:', res.status);
         const data = await res.json();
-        console.log('📡 Categories data:', data.length, 'categories');
         const grid = document.getElementById('filter-cats');
 
         data.forEach(c => {
@@ -210,18 +235,17 @@ async function loadCategories() {
 
             el.innerHTML = `
                 <div class="filter-cat-dot" style="background:${DOT_COLORS[c.name] || '#6b7280'}"></div>
-                <span>${c.name}</span>`;
+                <span>${escapeHtml(c.name)}</span>`;
             el.onclick = () => selectCat(el);
             grid.appendChild(el);
         });
     } catch (e) {
-        console.error('❌ Could not load categories:', e);
+        console.error('Could not load categories:', e);
     }
 }
 
-// --LOAD DEALS -----------------------------
+// ── LOAD DEALS ─────────────────────────────────────────────
 async function loadDeals() {
-    console.log('📡 Loading deals...');
     document.getElementById('deals-grid').innerHTML = '<div class="deal-skeleton"></div>'.repeat(6);
 
     const params = new URLSearchParams();
@@ -237,9 +261,11 @@ async function loadDeals() {
 
     try {
         const res = await fetch(`${API}/products?${params}`);
-        console.log('📡 Deals response status:', res.status);
         const data = await res.json();
-        console.log('📡 Deals data:', data.totalCount, 'products');
+
+        // Keep the current page's products around so cards can look
+        // themselves up by id when clicked (see openModalById).
+        currentDeals = data.items;
 
         document.getElementById('result-count').textContent = data.totalCount.toLocaleString() + ' deals';
         document.getElementById('showing-count').textContent = data.items.length + ' of ' + data.totalCount;
@@ -263,11 +289,11 @@ async function loadDeals() {
             const hideHeart = isOwnProduct || isAdminUser;
 
             const imageHtml = p.mainImageUrl
-                ? `<img src="${p.mainImageUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;" />`
+                ? `<img src="${escapeHtml(p.mainImageUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;" />`
                 : EMOJIS[p.categoryName] || '📦';
 
             return `
-                <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
+                <div class="deal" onclick="openModalById(${p.id})">
                     <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'};position:relative;overflow:hidden;">
                         ${imageHtml}
                         <div class="deal-badges">
@@ -289,11 +315,11 @@ async function loadDeals() {
                         `}
                     </div>
                     <div class="deal-body">
-                        <div class="deal-cat">${p.categoryName || 'General'}</div>
-                        <div class="deal-title">${p.title}</div>
+                        <div class="deal-cat">${escapeHtml(p.categoryName || 'General')}</div>
+                        <div class="deal-title">${escapeHtml(p.title)}</div>
                         <div class="deal-shop">
                             <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
-                            ${p.shopName}${p.shopCity ? ', ' + p.shopCity : ''}
+                            ${escapeHtml(p.shopName)}${p.shopCity ? ', ' + escapeHtml(p.shopCity) : ''}
                         </div>
                         <div class="deal-pricing">
                             <span class="deal-price">${fmt(p.salePrice)}</span>
@@ -316,7 +342,7 @@ async function loadDeals() {
         applySavedState();
 
     } catch (e) {
-        console.error('❌ Could not load deals:', e);
+        console.error('Could not load deals:', e);
         document.getElementById('deals-grid').innerHTML = `
             <p style="font-size:13px;color:#666;padding:1rem;grid-column:1/-1">
                 Could not load deals. Make sure the API is running.
@@ -362,24 +388,35 @@ function goPage(p) {
 let currentImageIndex = 0;
 let productImages = [];
 
-function openModal(productData) {
-    console.log('=== OPEN MODAL DEBUG ===');
-    console.log('📦 Product data received:', productData);
+// Looks the clicked card's product up from the current page of results
+// instead of the card carrying the full product as JSON inside its onclick
+// attribute. Embedding JSON.stringify(p) directly into a single-quoted HTML
+// attribute meant any field containing a single quote - a product title, a
+// shop name, anything a seller typed - could break out of the attribute and
+// inject arbitrary markup/script into every visitor's browser. An id is just
+// a number, so there's nothing to break out of.
+function openModalById(id) {
+    const product = currentDeals.find(p => p.id === id);
+    if (!product) {
+        console.error('Could not find product', id, 'in the current results.');
+        return;
+    }
+    openModal(product);
+}
 
+function openModal(productData) {
     if (!productData.imageUrls) {
-        console.log('🔍 No imageUrls found, fetching full product details...');
+        // List cards (ProductCardDto) only carry mainImageUrl, not the full
+        // imageUrls array - that only comes back from the single-product
+        // endpoint (ProductDetailDto), so fetch the full record first.
         fetch(`${API}/products/${productData.slug}`)
             .then(res => {
-                console.log('📡 Fetch response status:', res.status);
                 if (!res.ok) throw new Error('Product not found');
                 return res.json();
             })
-            .then(fullProduct => {
-                console.log('✅ Full product fetched:', fullProduct);
-                renderModal(fullProduct);
-            })
+            .then(fullProduct => renderModal(fullProduct))
             .catch(err => {
-                console.error('❌ Error fetching full product:', err);
+                console.error('Error fetching full product:', err);
                 renderModal(productData);
             });
         return;
@@ -389,15 +426,12 @@ function openModal(productData) {
 }
 
 function renderModal(p) {
-    console.log('🎨 Rendering modal with:', p);
-
     const user = getUser();
     const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
     const isAdminUser = isAdmin();
 
     productImages = p.imageUrls || [];
     currentImageIndex = 0;
-    console.log('📸 Images for carousel:', productImages.length, 'images');
 
     const carouselSlide = document.getElementById('m-carousel-slide');
     const dotsContainer = document.getElementById('carousel-dots');
@@ -406,10 +440,12 @@ function renderModal(p) {
     const nextBtn = document.getElementById('carousel-next');
 
     if (productImages && productImages.length > 0) {
-        console.log('✅ Rendering', productImages.length, 'images');
+        // Escaped as an attribute value - uploaded image filenames incorporate
+        // the original filename the uploader chose, so this isn't guaranteed
+        // to be free of characters that could break out of the src attribute.
         carouselSlide.innerHTML = productImages.map((url, index) => `
             <div class="carousel-image-wrapper" data-index="${index}" style="display:${index === 0 ? 'flex' : 'none'};width:100%;height:100%;align-items:center;justify-content:center;">
-                <img src="${url}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'"/>
+                <img src="${escapeHtml(url)}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'"/>
             </div>
         `).join('');
 
@@ -421,7 +457,6 @@ function renderModal(p) {
         prevBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
         nextBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
     } else {
-        console.log('❌ No images, showing emoji');
         carouselSlide.innerHTML = `
             <div class="emoji-placeholder" style="font-size:72px;">${EMOJIS[p.categoryName] || '📦'}</div>
         `;
@@ -435,6 +470,9 @@ function renderModal(p) {
     const modalHero = document.getElementById('m-img');
     modalHero.style.background = bg;
 
+    // All of these use textContent, not innerHTML - the browser treats the
+    // value as plain text rather than parsing it as markup, so there's
+    // nothing to escape here.
     document.getElementById('m-cat').textContent = p.categoryName || 'General';
     document.getElementById('m-title').textContent = p.title;
     document.getElementById('m-price').textContent = fmt(p.salePrice);
@@ -502,7 +540,6 @@ function renderModal(p) {
     }
 
     document.getElementById('modal').classList.add('open');
-    console.log('=== END RENDER MODAL ===');
 }
 
 // ─── CAROUSEL FUNCTIONS ──────────────────────────────────
@@ -604,6 +641,9 @@ async function toggleSave(productId) {
                 showToast('Removed from saved 🤍');
             }
         } else {
+            // SavedProductsController.Save binds [FromBody] int productId - a
+            // bare JSON number, not a wrapper object - so JSON.stringify on
+            // the raw id is correct here, not a shortcut that happens to work.
             const res = await fetch(`${API}/saved-products`, {
                 method: 'POST',
                 headers: {
@@ -643,21 +683,7 @@ function showToast(message) {
     setTimeout(() => { toast.style.opacity = '0'; }, 2500);
 }
 
-// ── LOAD STATS ───────────────────────────────────────────
-async function loadStats() {
-    console.log('📡 Loading stats...');
-    try {
-        const res = await fetch(`${API}/products?pageSize=1`);
-        console.log('📡 Stats response status:', res.status);
-        const data = await res.json();
-        document.getElementById('result-count').textContent = data.totalCount + ' deals';
-    } catch (e) {
-        console.error('Could not load stats:', e);
-    }
-}
-
 // ── INIT ─────────────────────────────────────────────────
-console.log('🚀 Initializing browse page...');
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('category')) state.categorySlug = urlParams.get('category');
 if (urlParams.get('sort')) state.sortBy = urlParams.get('sort');
@@ -670,4 +696,3 @@ checkAuth();
 loadCategories();
 loadDeals();
 loadSavedIds();
-loadStats();
