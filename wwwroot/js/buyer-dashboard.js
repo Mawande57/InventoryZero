@@ -25,6 +25,12 @@ function getUser() {
 const token = getToken();
 if (!token) window.location.href = '/pages/login.html';
 
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/pages/login.html';
+}
+
 // ── HELPERS ──────────────────────────────────────────────
 function fmt(n) { return 'R' + Number(n).toLocaleString('en-ZA'); }
 
@@ -33,6 +39,21 @@ function authHeaders() {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + getToken()
     };
+}
+
+// Anything rendered via innerHTML has to go through this first. Order and
+// saved-item titles/shop names come from the seller who listed the product,
+// not from the buyer viewing this page - so a malicious title could still
+// execute script in the browser of any buyer who ordered or saved that item,
+// even though this page only shows "your own" orders/saves.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function statusClass(status) {
@@ -47,17 +68,53 @@ function statusClass(status) {
     return map[status] || 'status-pending';
 }
 
-function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/pages/login.html';
+// South African phone numbers in local format: a leading 0 followed by 9
+// digits (10 digits total). Spaces/dashes are stripped before checking.
+function isValidSaPhone(value) {
+    const digitsOnly = value.replace(/[\s-]/g, '');
+    return /^0\d{9}$/.test(digitsOnly);
+}
+
+// SA postal codes are 4 digits.
+function isValidSaPostalCode(value) {
+    return /^\d{4}$/.test(value.trim());
+}
+
+// Centralizes fetch + auth headers + error handling for every call in this
+// file. Several of these (loadProfile, loadOrders, loadSaved) previously
+// called res.json() with no res.ok check at all - fetch() only rejects on a
+// network failure, not on a 401/400/500, so an expired token would silently
+// try to render an error response as if it were real profile/order data.
+// 401/403 here means the session is over, not just "this one request failed."
+async function apiRequest(path, options = {}) {
+    const res = await fetch(`${API}${path}`, {
+        ...options,
+        headers: { ...authHeaders(), ...(options.headers || {}) }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error('Session expired. Please log in again.');
+    }
+
+    let data = null;
+    try {
+        data = await res.json();
+    } catch {
+        data = null; // e.g. a 204 No Content response has no body to parse
+    }
+
+    if (!res.ok) {
+        throw new Error(data?.message || `Request failed (${res.status}).`);
+    }
+
+    return data;
 }
 
 // ── LOAD PROFILE ─────────────────────────────────────────
 async function loadProfile() {
     try {
-        const res = await fetch(`${API}/user/profile`, { headers: authHeaders() });
-        const profile = await res.json();
+        const profile = await apiRequest('/user/profile');
 
         // Nav
         document.getElementById('nav-user').textContent =
@@ -95,16 +152,14 @@ async function loadProfile() {
 }
 
 // ── LOAD ORDERS ──────────────────────────────────────────
-// ── LOAD ORDERS ──────────────────────────────────────────
 async function loadOrders() {
     try {
-        const res = await fetch(`${API}/orders`, { headers: authHeaders() });
-        const orders = await res.json();
+        const orders = await apiRequest('/orders');
 
         // Update stat
         document.getElementById('stat-orders').textContent = orders.length;
 
-        // ✅ Calculate total spent - EXCLUDE cancelled orders
+        // Calculate total spent - exclude cancelled orders
         const spent = orders
             .filter(o => o.paymentStatus === 'Paid' && o.orderStatus !== 'Cancelled')
             .reduce((sum, o) => sum + o.totalAmount, 0);
@@ -123,29 +178,39 @@ async function loadOrders() {
             return;
         }
 
-        // ✅ Only show recent non-cancelled orders (or show all, but mark cancelled)
+        // Only show recent orders (or show all, but mark cancelled)
         const recent = orders.slice(0, 5);
-        document.getElementById('orders-list').innerHTML = recent.map(o => `
+        document.getElementById('orders-list').innerHTML = recent.map(o => {
+            // OrderSummaryDto has no CategoryName field - that lookup always
+            // missed, so every order used to show the same gray box and the
+            // same generic 📦 regardless of what was ordered. The DTO does
+            // carry ProductImage, which is what this was clearly meant to show.
+            const imageHtml = o.productImage
+                ? `<img src="${escapeHtml(o.productImage)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />`
+                : '📦';
+
+            return `
             <div class="order-item" onclick="window.location.href='/pages/order-detail.html?id=${o.id}'">
-                <div class="order-img" style="background:${CAT_COLORS[o.categoryName] || '#f5f5f3'}">
-                    ${EMOJIS[o.categoryName] || '📦'}
+                <div class="order-img" style="background:#f5f5f3">
+                    ${imageHtml}
                 </div>
                 <div class="order-info">
-                    <div class="order-title">${o.productTitle}</div>
+                    <div class="order-title">${escapeHtml(o.productTitle)}</div>
                     <div class="order-meta">
-                        <span>${o.shopName}</span>
+                        <span>${escapeHtml(o.shopName)}</span>
                         <span>·</span>
-                        <span class="order-num">${o.orderNumber}</span>
+                        <span class="order-num">${escapeHtml(o.orderNumber)}</span>
                         <span>·</span>
                         <span>${new Date(o.createdAt).toLocaleDateString('en-ZA')}</span>
                     </div>
                 </div>
                 <div class="order-right">
                     <div class="order-amount">${fmt(o.totalAmount)}</div>
-                    <div class="status-badge ${statusClass(o.orderStatus)}">${o.orderStatus}</div>
+                    <div class="status-badge ${statusClass(o.orderStatus)}">${escapeHtml(o.orderStatus)}</div>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
     } catch (e) {
         console.error('Could not load orders', e);
@@ -155,8 +220,7 @@ async function loadOrders() {
 // ── LOAD SAVED PRODUCTS ──────────────────────────────────
 async function loadSaved() {
     try {
-        const res = await fetch(`${API}/saved-products`, { headers: authHeaders() });
-        const saved = await res.json();
+        const saved = await apiRequest('/saved-products');
 
         document.getElementById('stat-saved').textContent = saved.length;
         document.getElementById('saved-count').textContent =
@@ -178,7 +242,7 @@ async function loadSaved() {
           ${EMOJIS[p.categoryName] || '📦'}
         </div>
         <div class="saved-body">
-          <div class="saved-title">${p.title}</div>
+          <div class="saved-title">${escapeHtml(p.title)}</div>
           <div>
             <span class="saved-price">${fmt(p.salePrice)}</span>
             <span class="saved-orig">${fmt(p.originalPrice)}</span>
@@ -197,13 +261,11 @@ async function loadSaved() {
 // ── UNSAVE PRODUCT ───────────────────────────────────────
 async function unsave(productId) {
     try {
-        await fetch(`${API}/saved-products/${productId}`, {
-            method: 'DELETE',
-            headers: authHeaders()
-        });
+        await apiRequest(`/saved-products/${productId}`, { method: 'DELETE' });
         loadSaved(); // reload saved grid
     } catch (e) {
         console.error('Could not unsave', e);
+        alert(e.message || 'Could not remove this item. Please try again.');
     }
 }
 
@@ -230,10 +292,10 @@ function renderAddresses(addresses) {
          onclick="setDefault(${a.id})">
       <div class="addr-type">
         <i class="ti ti-${a.addressType === 'Home' ? 'home' : a.addressType === 'Work' ? 'building' : 'map-pin'}" aria-hidden="true"></i>
-        ${a.addressType}
+        ${escapeHtml(a.addressType)}
       </div>
-      <div class="addr-line">${a.addressLine1}</div>
-      <div class="addr-sub">${a.city}, ${a.province}, ${a.postalCode}</div>
+      <div class="addr-line">${escapeHtml(a.addressLine1)}</div>
+      <div class="addr-sub">${escapeHtml(a.city)}, ${escapeHtml(a.province)}, ${escapeHtml(a.postalCode)}</div>
       ${a.isDefault ? '<div class="default-badge">Default</div>' : ''}
     </div>`).join('') + `
     <button class="btn-add-addr" onclick="showAddrModal()">
@@ -244,12 +306,11 @@ function renderAddresses(addresses) {
 // ── SET DEFAULT ADDRESS ──────────────────────────────────
 async function setDefault(addressId) {
     try {
-        await fetch(`${API}/user/addresses/${addressId}/default`, {
-            method: 'PUT', headers: authHeaders()
-        });
+        await apiRequest(`/user/addresses/${addressId}/default`, { method: 'PUT' });
         loadProfile();
     } catch (e) {
         console.error('Could not set default', e);
+        alert(e.message || 'Could not update default address. Please try again.');
     }
 }
 
@@ -273,19 +334,28 @@ async function saveProfile() {
         errEl.classList.add('show');
         return;
     }
+    if (name.length < 2) {
+        errEl.textContent = 'Please enter your full name.';
+        errEl.classList.add('show');
+        return;
+    }
+    // Phone stays optional here too (UpdateProfileAsync never requires it) -
+    // only checked if the field wasn't left blank.
+    if (phone && !isValidSaPhone(phone)) {
+        errEl.textContent = 'Please enter a valid South African phone number, e.g. 082 123 4567.';
+        errEl.classList.add('show');
+        return;
+    }
 
     errEl.classList.remove('show');
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
     try {
-        const res = await fetch(`${API}/user/profile`, {
+        await apiRequest('/user/profile', {
             method: 'PUT',
-            headers: authHeaders(),
-            body: JSON.stringify({ fullName: name, phoneNumber: phone })
+            body: JSON.stringify({ fullName: name, phoneNumber: phone.replace(/[\s-]/g, '') })
         });
-
-        if (!res.ok) throw new Error('Failed to update.');
 
         // Update localStorage user
         const user = getUser();
@@ -296,7 +366,9 @@ async function saveProfile() {
         loadProfile();
 
     } catch (e) {
-        errEl.textContent = 'Could not update profile. Try again.';
+        // Surface the server's actual reason when it gives one, instead of
+        // always showing the same generic line regardless of what went wrong.
+        errEl.textContent = e.message || 'Could not update profile. Try again.';
         errEl.classList.add('show');
     } finally {
         btn.disabled = false;
@@ -334,19 +406,36 @@ async function saveAddress() {
         errEl.classList.add('show');
         return;
     }
+    if (body.recipientName.length < 2) {
+        errEl.textContent = 'Please enter the recipient\'s full name.';
+        errEl.classList.add('show');
+        return;
+    }
+    if (!isValidSaPostalCode(body.postalCode)) {
+        errEl.textContent = 'Please enter a valid 4-digit South African postal code.';
+        errEl.classList.add('show');
+        return;
+    }
+    if (!isValidSaPhone(body.phoneNumber)) {
+        errEl.textContent = 'Please enter a valid South African phone number, e.g. 082 123 4567.';
+        errEl.classList.add('show');
+        return;
+    }
+
+    // Normalize before sending - digits only for the phone, no surrounding
+    // whitespace left in the postal code.
+    body.phoneNumber = body.phoneNumber.replace(/[\s-]/g, '');
+    body.postalCode = body.postalCode.trim();
 
     errEl.classList.remove('show');
     btn.disabled = true;
     btn.textContent = 'Adding...';
 
     try {
-        const res = await fetch(`${API}/user/addresses`, {
+        await apiRequest('/user/addresses', {
             method: 'POST',
-            headers: authHeaders(),
             body: JSON.stringify(body)
         });
-
-        if (!res.ok) throw new Error('Failed to add address.');
 
         closeAddrModal();
         loadProfile();
@@ -358,13 +447,14 @@ async function saveAddress() {
         document.getElementById('addr-default').checked = false;
 
     } catch (e) {
-        errEl.textContent = 'Could not add address. Try again.';
+        errEl.textContent = e.message || 'Could not add address. Try again.';
         errEl.classList.add('show');
     } finally {
         btn.disabled = false;
         btn.textContent = 'Add address';
     }
 }
+
 function renderDashboardSwitcher() {
     const user = getUser();
     if (!user || user.role === 'Admin') return;
@@ -395,7 +485,6 @@ function renderDashboardSwitcher() {
         `;
     }
 }
- // call alongside your existing init calls
 
 // ── INIT ─────────────────────────────────────────────────
 loadProfile();
