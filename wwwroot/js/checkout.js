@@ -30,6 +30,12 @@ function getUser() {
 
 if (!getToken()) window.location.href = '/pages/login.html';
 
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/pages/login.html';
+}
+
 function authHeaders() {
     return {
         'Content-Type': 'application/json',
@@ -39,56 +45,82 @@ function authHeaders() {
 
 function fmt(n) { return 'R' + Number(n).toLocaleString('en-ZA'); }
 
-// ── LOAD PRODUCT FROM URL SLUG ────────────────────────────
+// Anything rendered via innerHTML has to go through this first. Product
+// title/shop name/category come from the seller, not the buyer checking out,
+// so a malicious value there could still execute script in the buyer's
+// browser during checkout - the single worst place for that to happen.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// South African phone numbers in local format: a leading 0 followed by 9
+// digits (10 digits total). Spaces/dashes are stripped before checking.
+function isValidSaPhone(value) {
+    const digitsOnly = value.replace(/[\s-]/g, '');
+    return /^0\d{9}$/.test(digitsOnly);
+}
+
+// SA postal codes are 4 digits.
+function isValidSaPostalCode(value) {
+    return /^\d{4}$/.test(value.trim());
+}
+
+// Centralizes fetch + auth headers + error handling for the authenticated
+// calls in this file (loadAddresses, placeOrder). loadProduct deliberately
+// doesn't use this - GET /products/{slug} needs no auth header, and forcing
+// one on would be wrong, not an improvement.
+async function apiRequest(path, options = {}) {
+    const res = await fetch(`${API}${path}`, {
+        ...options,
+        headers: { ...authHeaders(), ...(options.headers || {}) }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error('Session expired. Please log in again.');
+    }
+
+    let data = null;
+    try {
+        data = await res.json();
+    } catch {
+        data = null; // e.g. a 204 No Content response has no body to parse
+    }
+
+    if (!res.ok) {
+        throw new Error(data?.message || `Request failed (${res.status}).`);
+    }
+
+    return data;
+}
+
 // ── LOAD PRODUCT FROM URL SLUG ────────────────────────────
 async function loadProduct() {
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('slug');
 
-    console.log('=== CHECKOUT LOAD PRODUCT DEBUG ===');
-    console.log('🔍 Slug from URL:', slug);
-
     if (!slug) {
-        console.log('❌ No slug found, redirecting to browse');
         window.location.href = '/pages/browse.html';
         return;
     }
 
     try {
-        console.log(`📡 Fetching: ${API}/products/${slug}`);
         const res = await fetch(`${API}/products/${slug}`);
-        console.log('📡 Response status:', res.status);
-
-        if (!res.ok) {
-            const errorData = await res.json();
-            console.log('❌ Error response:', errorData);
-            throw new Error('Product not found');
-        }
+        if (!res.ok) throw new Error('Product not found');
 
         product = await res.json();
-        console.log('✅ Product loaded:', product);
-        console.log('📦 Product shopOwnerId:', product.shopOwnerId);
-        console.log('📦 Product shopId:', product.shopId);
-        console.log('📦 Product status:', product.status);
 
-        // ✅ CHECK: If user owns this shop, block checkout
+        // If the current user owns this shop, block checkout entirely.
         const user = getUser();
-        console.log('👤 Current user:', user);
-        console.log('👤 User ID:', user?.id);
-        console.log('👤 User hasShop:', user?.hasShop);
-
         const isOwnProduct = user && user.hasShop && product.shopOwnerId === user.id;
-        console.log('🔍 isOwnProduct check:', {
-            userExists: !!user,
-            hasShop: user?.hasShop,
-            shopOwnerId: product.shopOwnerId,
-            userId: user?.id,
-            match: user && user.hasShop && product.shopOwnerId === user.id
-        });
-        console.log('✅ isOwnProduct result:', isOwnProduct);
 
         if (isOwnProduct) {
-            console.log('🚫 User owns this product - blocking checkout');
             const preview = document.getElementById('product-preview');
             if (preview) {
                 preview.innerHTML = `
@@ -105,11 +137,9 @@ async function loadProduct() {
             }
             const form = document.getElementById('checkout-form');
             if (form) form.style.display = 'none';
-            console.log('=== END LOAD PRODUCT (BLOCKED) ===');
             return;
         }
 
-        console.log('✅ User can buy this product - showing checkout');
         const remaining = product.remainingQuantity;
 
         const preview = document.getElementById('product-preview');
@@ -119,11 +149,11 @@ async function loadProduct() {
                     ${EMOJIS[product.categoryName] || '📦'}
                 </div>
                 <div class="pp-info">
-                    <div class="pp-cat">${product.categoryName || 'General'}</div>
-                    <div class="pp-title">${product.title}</div>
+                    <div class="pp-cat">${escapeHtml(product.categoryName || 'General')}</div>
+                    <div class="pp-title">${escapeHtml(product.title)}</div>
                     <div class="pp-shop">
                         <i class="ti ti-building-store" style="font-size:11px" aria-hidden="true"></i>
-                        ${product.shopName}${product.shopCity ? ', ' + product.shopCity : ''}
+                        ${escapeHtml(product.shopName)}${product.shopCity ? ', ' + escapeHtml(product.shopCity) : ''}
                     </div>
                     <div class="pp-pricing">
                         <span class="pp-price">${fmt(product.salePrice)}</span>
@@ -144,11 +174,9 @@ async function loadProduct() {
         if (form) form.style.display = 'block';
 
         updateSummary();
-        console.log('=== END LOAD PRODUCT (SUCCESS) ===');
 
     } catch (e) {
-        console.error('❌ Catch error:', e);
-        console.log('❌ Product not found, showing error message');
+        console.error('Could not load product:', e);
         const preview = document.getElementById('product-preview');
         if (preview) {
             preview.innerHTML = `
@@ -171,8 +199,7 @@ async function loadProduct() {
 // ── LOAD ADDRESSES ───────────────────────────────────────
 async function loadAddresses() {
     try {
-        const res = await fetch(`${API}/user/profile`, { headers: authHeaders() });
-        const profile = await res.json();
+        const profile = await apiRequest('/user/profile');
         addresses = profile.addresses;
 
         const container = document.getElementById('addr-options');
@@ -195,11 +222,11 @@ async function loadAddresses() {
                  onclick="selectAddress(${a.id})">
                 <div class="addr-opt-type">
                     <i class="ti ti-${a.addressType === 'Home' ? 'home' : 'building'}" aria-hidden="true"></i>
-                    ${a.addressType}
+                    ${escapeHtml(a.addressType)}
                     ${a.isDefault ? '· <span style="color:#0F6E56">Default</span>' : ''}
                 </div>
-                <div class="addr-opt-line">${a.addressLine1}</div>
-                <div class="addr-opt-sub">${a.city}, ${a.province}, ${a.postalCode}</div>
+                <div class="addr-opt-line">${escapeHtml(a.addressLine1)}</div>
+                <div class="addr-opt-sub">${escapeHtml(a.city)}, ${escapeHtml(a.province)}, ${escapeHtml(a.postalCode)}</div>
                 <div class="addr-radio"></div>
             </div>`).join('') + `
             <button class="new-addr-btn" onclick="toggleNewAddrForm()">
@@ -283,6 +310,16 @@ async function placeOrder() {
             errEl.classList.add('show');
             return;
         }
+        if (!isValidSaPostalCode(postal)) {
+            errEl.textContent = 'Please enter a valid 4-digit South African postal code.';
+            errEl.classList.add('show');
+            return;
+        }
+        if (!isValidSaPhone(phone)) {
+            errEl.textContent = 'Please enter a valid South African phone number, e.g. 082 123 4567.';
+            errEl.classList.add('show');
+            return;
+        }
     }
 
     btn.disabled = true;
@@ -300,6 +337,13 @@ async function placeOrder() {
             if (!addr) {
                 throw new Error('Selected address not found.');
             }
+            // Sent alongside savedAddressId as a fallback, not redundantly:
+            // OrderService looks the saved address up again server-side and
+            // uses that instead whenever the lookup succeeds, but if the
+            // address were ever deleted between loading this page and
+            // placing the order, these are what the order falls back to
+            // rather than failing outright. Don't remove this thinking it's
+            // dead weight - it isn't.
             body.savedAddressId = selectedAddressId;
             body.shippingAddressLine1 = addr.addressLine1;
             body.shippingCity = addr.city;
@@ -311,43 +355,27 @@ async function placeOrder() {
             body.shippingCity = document.getElementById('new-city').value.trim();
             body.shippingProvince = document.getElementById('new-province').value;
             body.shippingPostalCode = document.getElementById('new-postal').value.trim();
-            body.shippingPhoneNumber = document.getElementById('new-phone').value.trim();
+            body.shippingPhoneNumber = document.getElementById('new-phone').value.trim().replace(/[\s-]/g, '');
         }
 
-        // 🔍 DEBUG: Log the request body
-        console.log('📦 Order request body:', JSON.stringify(body, null, 2));
-
-        const res = await fetch(`${API}/orders`, {
+        const data = await apiRequest('/orders', {
             method: 'POST',
-            headers: authHeaders(),
             body: JSON.stringify(body)
         });
 
-        // 🔍 DEBUG: Log the response
-        console.log('📡 Response status:', res.status);
-        const data = await res.json();
-        console.log('📡 Response data:', data);
-
-        if (!res.ok) {
-            // ✅ Handle out of stock error
-            if (data.message && data.message.includes('Only')) {
-                errEl.textContent = 'Sorry! ' + data.message;
-                errEl.classList.add('show');
-                // Refresh product to show updated stock
-                await loadProduct();
-                return;
-            }
-            errEl.textContent = data.message || 'Could not place order.';
-            errEl.classList.add('show');
-            return;
-        }
-
         // Redirect to payment page
-        window.location.href = `/pages/payment.html?orderId=${data.id}&orderNumber=${data.orderNumber}&amount=${data.totalAmount}`;
+        window.location.href = `/pages/payment.html?orderId=${data.id}&orderNumber=${encodeURIComponent(data.orderNumber)}&amount=${data.totalAmount}`;
 
     } catch (e) {
-        console.error('❌ Place order error:', e);
-        errEl.textContent = 'Something went wrong. Please try again.';
+        // Out-of-stock errors from OrderService read "Only {n} units available."
+        // - matched here to refresh stock and give a friendlier message.
+        if (e.message && e.message.includes('Only')) {
+            errEl.textContent = 'Sorry! ' + e.message;
+            errEl.classList.add('show');
+            await loadProduct();
+            return;
+        }
+        errEl.textContent = e.message || 'Could not place order.';
         errEl.classList.add('show');
     } finally {
         btn.disabled = false;
