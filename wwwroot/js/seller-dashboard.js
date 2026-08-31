@@ -1,43 +1,36 @@
 ﻿const API = 'https://localhost:7237/api';
 
 // ── AUTH ──────────────────────────────────────────────────
-function getToken() {
-    const token = localStorage.getItem('token');
-    console.log('🔑 Token:', token ? 'exists' : 'null');
-    return token;
-}
-
+function getToken() { return localStorage.getItem('token'); }
 function getUser() {
     const u = localStorage.getItem('user');
-    console.log('👤 User from localStorage:', u);
     return u ? JSON.parse(u) : null;
 }
 
-// 🔍 DEBUG: Log everything
-console.log('=== SELLER DASHBOARD LOADED ===');
 const user = getUser();
-console.log('📦 User object:', user);
-console.log('📦 hasShop:', user?.hasShop);
 
-// ✅ Check if user exists
+// Was three sequential `if` statements with no return/else - since
+// window.location.href doesn't stop execution, a missing user would fall
+// through into `!user.hasShop` and throw on `null.hasShop` before the
+// redirect even completed. else-if avoids that entirely.
+let shouldRedirect = false;
+
 if (!user) {
-    console.log('❌ No user found, redirecting to login');
+    shouldRedirect = true;
     window.location.href = '/pages/login.html';
-}
-
-// If user has no shops, redirect to create shop page
-if (!user.hasShop) {
-    console.log('❌ User has no shops, redirecting to create-shop');
+} else if (!user.hasShop) {
+    shouldRedirect = true;
     window.location.href = '/pages/create-shop.html';
-}
-
-// If user is Admin, redirect to admin dashboard
-if (user.role === 'Admin') {
-    console.log('❌ User is Admin, redirecting to admin dashboard');
+} else if (user.role === 'Admin') {
+    shouldRedirect = true;
     window.location.href = '/pages/admin-dashboard.html';
 }
 
-console.log('✅ User is a seller, loading dashboard!');
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/pages/login.html';
+}
 
 function authHeaders() {
     return {
@@ -45,14 +38,70 @@ function authHeaders() {
         'Authorization': 'Bearer ' + getToken()
     };
 }
-function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/pages/login.html';
-}
 
 // ── HELPERS ──────────────────────────────────────────────
 function fmt(n) { return 'R' + Number(n).toLocaleString('en-ZA'); }
+
+// Anything rendered via innerHTML has to go through this first. Order/
+// product/shop titles and names all come from data other users typed in, so
+// treating them as trusted HTML would let a malicious value execute script
+// in the seller's own browser while managing their store.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// South African phone numbers in local format: a leading 0 followed by 9
+// digits (10 digits total). Spaces/dashes are stripped before checking.
+function isValidSaPhone(value) {
+    const digitsOnly = value.replace(/[\s-]/g, '');
+    return /^0\d{9}$/.test(digitsOnly);
+}
+
+// Distinguishes "your connection looks offline" from "our server didn't
+// respond" for genuine connectivity failures.
+function getConnectionMessage() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return "You appear to be offline. Check your internet connection and try again.";
+    }
+    return "We're having trouble reaching the server right now. This is usually temporary — please try again in a moment.";
+}
+
+// Centralizes fetch + auth headers + error handling for the plain-JSON calls
+// in this file. Several load functions (stats, orders, products, shops,
+// payouts) previously called res.json() with no res.ok check at all.
+// Deliberately NOT used for saveProduct()'s image upload - that request
+// needs to omit Content-Type so the browser sets its own multipart boundary,
+// and forcing the JSON default onto it would break file uploads.
+async function apiRequest(path, options = {}) {
+    const res = await fetch(`${API}${path}`, {
+        ...options,
+        headers: { ...authHeaders(), ...(options.headers || {}) }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+        logout();
+        throw new Error('Session expired. Please log in again.');
+    }
+
+    let data = null;
+    try {
+        data = await res.json();
+    } catch {
+        data = null;
+    }
+
+    if (!res.ok) {
+        throw new Error(data?.message || `Request failed (${res.status}).`);
+    }
+
+    return data;
+}
 
 function statusClass(status) {
     const map = {
@@ -91,8 +140,7 @@ function switchTab(tab) {
 // ── LOAD DASHBOARD STATS ─────────────────────────────────
 async function loadStats() {
     try {
-        const res = await fetch(`${API}/seller/stats`, { headers: authHeaders() });
-        const stats = await res.json();
+        const stats = await apiRequest('/seller/stats');
 
         document.getElementById('stat-shops').textContent = stats.shops || 0;
         document.getElementById('stat-products').textContent = stats.products || 0;
@@ -113,9 +161,10 @@ async function loadSellerOrders() {
     list.innerHTML = '<div class="order-skeleton"></div>'.repeat(3);
 
     try {
-        const url = statusFilter ? `${API}/seller/orders?status=${statusFilter}` : `${API}/seller/orders`;
-        const res = await fetch(url, { headers: authHeaders() });
-        const orders = await res.json();
+        const path = statusFilter
+            ? `/seller/orders?status=${encodeURIComponent(statusFilter)}`
+            : '/seller/orders';
+        const orders = await apiRequest(path);
 
         if (orders.length === 0) {
             list.innerHTML = `
@@ -128,24 +177,29 @@ async function loadSellerOrders() {
             return;
         }
 
+        // NOTE: o.productImage will always be null here - SellerService's own
+        // OrderSummaryDto mapping never sets it (OrderService's mapping for
+        // the buyer's own order history does, but this endpoint uses a
+        // different mapping that omits it). The field name below is correct;
+        // the gap is server-side.
         list.innerHTML = orders.map(o => `
             <div class="order-item">
                 <div class="order-img" style="background:#f8f8f6">
-                    ${o.productImage ? `<img src="${o.productImage}" style="width:40px;height:40px;object-fit:cover;border-radius:8px" />` : '📦'}
+                    ${o.productImage ? `<img src="${escapeHtml(o.productImage)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px" />` : '📦'}
                 </div>
                 <div class="order-info">
-                    <div class="order-title">${o.productTitle}</div>
+                    <div class="order-title">${escapeHtml(o.productTitle)}</div>
                     <div class="order-meta">
-                        <span>${o.shopName}</span>
+                        <span>${escapeHtml(o.shopName)}</span>
                         <span>·</span>
-                        <span class="order-num">#${o.orderNumber}</span>
+                        <span class="order-num">#${escapeHtml(o.orderNumber)}</span>
                         <span>·</span>
                         <span>${new Date(o.createdAt).toLocaleDateString('en-ZA')}</span>
                     </div>
                 </div>
                 <div class="order-right">
                     <div class="order-amount">${fmt(o.totalAmount)}</div>
-                    <div class="status-badge ${statusClass(o.orderStatus)}">${o.orderStatus}</div>
+                    <div class="status-badge ${statusClass(o.orderStatus)}">${escapeHtml(o.orderStatus)}</div>
                     <div class="order-actions">
                         ${o.orderStatus === 'Pending' ? `
                             <button class="btn-small primary" onclick="openStatusModal(${o.id}, '${o.orderNumber}')">
@@ -170,7 +224,13 @@ async function loadSellerOrders() {
 
     } catch (e) {
         console.error('Orders error:', e);
-        list.innerHTML = '<p style="color:#6b7280">Could not load orders.</p>';
+        list.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:1.5rem;">
+                <p style="font-size:13px;color:#666;margin-bottom:8px;">${escapeHtml(getConnectionMessage())}</p>
+                <button onclick="loadSellerOrders()" style="background:#1D9E75;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">
+                    Try again
+                </button>
+            </div>`;
     }
 }
 
@@ -180,8 +240,7 @@ async function loadSellerProducts() {
     grid.innerHTML = '<div class="product-skeleton"></div>'.repeat(4);
 
     try {
-        const res = await fetch(`${API}/seller/products`, { headers: authHeaders() });
-        const products = await res.json();
+        const products = await apiRequest('/seller/products');
 
         if (products.length === 0) {
             grid.innerHTML = `
@@ -200,15 +259,15 @@ async function loadSellerProducts() {
         grid.innerHTML = products.map(p => `
             <div class="product-card">
                 <div class="product-card-img" style="background:#f8f8f6">
-                    ${p.mainImageUrl ? `<img src="${p.mainImageUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:8px" />` : '📦'}
+                    ${p.mainImageUrl ? `<img src="${escapeHtml(p.mainImageUrl)}" style="width:60px;height:60px;object-fit:cover;border-radius:8px" />` : '📦'}
                 </div>
                 <div class="product-card-body">
-                    <div class="product-card-title">${p.title}</div>
+                    <div class="product-card-title">${escapeHtml(p.title)}</div>
                     <div class="product-card-price">${fmt(p.salePrice)}</div>
                     <div style="font-size:11px;color:#6b7280;margin-top:2px">
-                        ${p.remainingQuantity} left · ${p.shopName}
+                        ${p.remainingQuantity} left · ${escapeHtml(p.shopName)}
                     </div>
-                    <span class="product-card-status ${p.status.toLowerCase()}">${p.status}</span>
+                    <span class="product-card-status ${p.status.toLowerCase()}">${escapeHtml(p.status)}</span>
                 </div>
                 <div class="product-card-actions">
                     <button class="btn-small primary" onclick="editProduct(${p.id})">Edit</button>
@@ -219,7 +278,13 @@ async function loadSellerProducts() {
 
     } catch (e) {
         console.error('Products error:', e);
-        grid.innerHTML = '<p style="color:#6b7280">Could not load products.</p>';
+        grid.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:1.5rem;">
+                <p style="font-size:13px;color:#666;margin-bottom:8px;">${escapeHtml(getConnectionMessage())}</p>
+                <button onclick="loadSellerProducts()" style="background:#1D9E75;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">
+                    Try again
+                </button>
+            </div>`;
     }
 }
 
@@ -229,9 +294,8 @@ async function loadSellerShops() {
     list.innerHTML = '<div class="shop-skeleton"></div>';
 
     try {
-        // ✅ Use /shops (ALL shops - for display)
-        const res = await fetch(`${API}/seller/shops`, { headers: authHeaders() });
-        const shops = await res.json();
+        // The seller's own shops (approved and pending alike), for display.
+        const shops = await apiRequest('/seller/shops');
 
         if (!shops || shops.length === 0) {
             list.innerHTML = `
@@ -248,9 +312,13 @@ async function loadSellerShops() {
         }
 
         list.innerHTML = shops.map(s => {
-            // ✅ Determine status display
+            // Determine status display. Renamed from `statusClass` to
+            // `shopStatusClass` - it was shadowing the statusClass() function
+            // declared above. Harmless today since it's block-scoped to this
+            // callback, but exactly the kind of thing that bites the next
+            // person who edits this expecting statusClass to mean the function.
             let statusText = s.status || 'Pending';
-            let statusClass = s.status?.toLowerCase() || 'pending';
+            let shopStatusClass = s.status?.toLowerCase() || 'pending';
             let verifiedText = '';
 
             if (s.status === 'Active' && s.isVerified) {
@@ -267,12 +335,12 @@ async function loadSellerShops() {
                 <div class="shop-card">
                     <div class="shop-card-avatar">🏪</div>
                     <div class="shop-card-info">
-                        <div class="shop-card-name">${s.shopName}</div>
+                        <div class="shop-card-name">${escapeHtml(s.shopName)}</div>
                         <div class="shop-card-meta">
-                            ${s.city || 'No location'} · ${verifiedText}
+                            ${escapeHtml(s.city || 'No location')} · ${verifiedText}
                         </div>
                     </div>
-                    <span class="shop-card-status ${statusClass}">${statusText}</span>
+                    <span class="shop-card-status ${shopStatusClass}">${escapeHtml(statusText)}</span>
                     <button class="btn-small primary" onclick="window.location.href='/pages/shop-profile.html?id=${s.id}'">
                         View Shop
                     </button>
@@ -282,7 +350,13 @@ async function loadSellerShops() {
 
     } catch (e) {
         console.error('Shops error:', e);
-        list.innerHTML = '<p style="color:#6b7280">Could not load shops.</p>';
+        list.innerHTML = `
+            <div style="text-align:center;padding:1.5rem;">
+                <p style="font-size:13px;color:#666;margin-bottom:8px;">${escapeHtml(getConnectionMessage())}</p>
+                <button onclick="loadSellerShops()" style="background:#1D9E75;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">
+                    Try again
+                </button>
+            </div>`;
     }
 }
 
@@ -293,8 +367,7 @@ async function loadSellerPayouts() {
     list.innerHTML = '<div class="payout-skeleton"></div>'.repeat(3);
 
     try {
-        const res = await fetch(`${API}/seller/payouts`, { headers: authHeaders() });
-        const payouts = await res.json();
+        const payouts = await apiRequest('/seller/payouts');
 
         const total = payouts.reduce((sum, p) => sum + (p.status === 'Completed' ? p.amount : 0), 0);
         totalEl.textContent = 'Total: ' + fmt(total);
@@ -314,10 +387,10 @@ async function loadSellerPayouts() {
             <div class="payout-item">
                 <div>
                     <div class="payout-amount">${fmt(p.amount)}</div>
-                    <div class="payout-meta">${p.shopName} · ${new Date(p.createdAt).toLocaleDateString('en-ZA')}</div>
+                    <div class="payout-meta">${escapeHtml(p.shopName)} · ${new Date(p.createdAt).toLocaleDateString('en-ZA')}</div>
                 </div>
                 <div>
-                    <span class="payout-status ${p.status.toLowerCase()}">${p.status}</span>
+                    <span class="payout-status ${p.status.toLowerCase()}">${escapeHtml(p.status)}</span>
                     ${p.status === 'Pending' ? '<div style="font-size:11px;color:#6b7280;margin-top:2px">Processing...</div>' : ''}
                 </div>
             </div>
@@ -325,7 +398,13 @@ async function loadSellerPayouts() {
 
     } catch (e) {
         console.error('Payouts error:', e);
-        list.innerHTML = '<p style="color:#6b7280">Could not load payouts.</p>';
+        list.innerHTML = `
+            <div style="text-align:center;padding:1.5rem;">
+                <p style="font-size:13px;color:#666;margin-bottom:8px;">${escapeHtml(getConnectionMessage())}</p>
+                <button onclick="loadSellerPayouts()" style="background:#1D9E75;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">
+                    Try again
+                </button>
+            </div>`;
     }
 }
 
@@ -356,19 +435,13 @@ async function updateOrderStatus() {
     errEl.classList.remove('show');
 
     try {
-        const res = await fetch(`${API}/seller/orders/${currentOrderId}/status`, {
+        await apiRequest(`/seller/orders/${currentOrderId}/status`, {
             method: 'PUT',
-            headers: authHeaders(),
             body: JSON.stringify({
                 status: status,
                 trackingNumber: status === 'Shipped' ? tracking : null
             })
         });
-
-        if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.message || 'Failed to update');
-        }
 
         closeModal('status-modal');
         loadSellerOrders();
@@ -387,20 +460,12 @@ async function cancelOrder(orderId) {
     if (!confirm('Are you sure you want to cancel this order?')) return;
 
     try {
-        const res = await fetch(`${API}/seller/orders/${orderId}/cancel`, {
-            method: 'PUT',
-            headers: authHeaders()
-        });
-
-        if (res.ok) {
-            loadSellerOrders();
-            loadStats();
-        } else {
-            alert('Could not cancel order.');
-        }
+        await apiRequest(`/seller/orders/${orderId}/cancel`, { method: 'PUT' });
+        loadSellerOrders();
+        loadStats();
     } catch (e) {
         console.error('Cancel error:', e);
-        alert('Something went wrong.');
+        alert(e.message || 'Could not cancel order.');
     }
 }
 
@@ -426,26 +491,9 @@ async function showAddProductModal() {
 }
 
 async function editProduct(id) {
-    console.log('📝 Editing product ID:', id);
-
     try {
-        const res = await fetch(`${API}/seller/products/${id}`, {
-            headers: authHeaders()
-        });
+        const p = await apiRequest(`/seller/products/${id}`);
 
-        console.log('📡 Response status:', res.status);
-
-        if (!res.ok) {
-            const error = await res.json();
-            console.error('❌ Error response:', error);
-            alert('Could not load product: ' + (error.message || 'Unknown error'));
-            return;
-        }
-
-        const p = await res.json();
-        console.log('✅ Product loaded:', p);
-
-        // ✅ Populate form fields
         document.getElementById('prod-title').value = p.title || '';
         document.getElementById('prod-desc').value = p.description || '';
         document.getElementById('prod-original').value = p.originalPrice || '';
@@ -468,8 +516,8 @@ async function editProduct(id) {
         showModal('add-product-modal');
 
     } catch (e) {
-        console.error('❌ Edit error:', e);
-        alert('Could not load product: ' + e.message);
+        console.error('Edit error:', e);
+        alert('Could not load product: ' + (e.message || 'Unknown error'));
     }
 }
 
@@ -478,10 +526,9 @@ async function populateShopSelect(selectedId) {
     select.innerHTML = '<option value="">Select a shop</option>';
 
     try {
-        const res = await fetch(`${API}/seller/shops/verified`, { headers: authHeaders() });
-        const shops = await res.json();
+        const shops = await apiRequest('/seller/shops/verified');
 
-        // ✅ Use a Set to prevent duplicates
+        // Use a Map to prevent duplicates
         const uniqueShops = new Map();
         shops.forEach(s => {
             if (!uniqueShops.has(s.id)) {
@@ -518,8 +565,10 @@ async function populateCategorySelect(selectedId) {
     const select = document.getElementById('prod-category');
     select.innerHTML = '<option value="">Select category</option>';
 
+    // Public endpoint - no auth header needed, matches original.
     try {
         const res = await fetch(`${API}/categories`);
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
         const cats = await res.json();
         cats.forEach(c => {
             const opt = document.createElement('option');
@@ -532,6 +581,7 @@ async function populateCategorySelect(selectedId) {
         console.error('Category select error:', e);
     }
 }
+
 async function saveProduct() {
     const errEl = document.getElementById('prod-err');
     const btn = document.getElementById('prod-save-btn');
@@ -548,20 +598,6 @@ async function saveProduct() {
     const isUrgent = document.getElementById('prod-urgent').checked;
     const imageInput = document.getElementById('prod-images');
     const images = imageInput.files;
-
-    console.log('🔍 Form data being sent:', {
-        title,
-        description,
-        originalPrice,
-        salePrice,
-        quantity,
-        condition,
-        shopId,
-        categoryId,
-        isUrgent,
-        imageCount: images.length,
-        editingProductId
-    });
 
     // ─── VALIDATION ─────────────────────────────────────
     if (!title || !originalPrice || !salePrice || !quantity || !shopId) {
@@ -594,23 +630,16 @@ async function saveProduct() {
 
     // Append images
     for (let i = 0; i < images.length; i++) {
-        console.log(`📷 Appending image ${i + 1}:`, images[i].name, images[i].size);
         formData.append('images', images[i]);
-    }
-
-    // ─── LOG FORM DATA ENTRIES ─────────────────────────
-    console.log('📦 FormData entries:');
-    for (let pair of formData.entries()) {
-        const value = pair[1] instanceof File ? `[File: ${pair[1].name}]` : pair[1];
-        console.log('  ', pair[0], '=', value);
     }
 
     const url = editingProductId ? `${API}/seller/products/${editingProductId}` : `${API}/seller/products`;
     const method = editingProductId ? 'PUT' : 'POST';
 
-    console.log(`📡 Sending ${method} request to:`, url);
-
     try {
+        // Not routed through apiRequest - this needs to omit Content-Type so
+        // the browser sets its own multipart boundary. Forcing the JSON
+        // default header onto a FormData body would break the upload.
         const res = await fetch(url, {
             method: method,
             headers: {
@@ -619,28 +648,26 @@ async function saveProduct() {
             body: formData
         });
 
-        console.log('📡 Response status:', res.status);
-        console.log('📡 Response headers:', [...res.headers.entries()]);
+        if (res.status === 401 || res.status === 403) {
+            logout();
+            return;
+        }
 
-        // ✅ Try to get response text first
         const responseText = await res.text();
-        console.log('📡 Raw response:', responseText);
-
         let data;
         try {
             data = JSON.parse(responseText);
         } catch (e) {
-            console.error('❌ Failed to parse JSON:', e);
             data = { message: responseText || 'Unknown response' };
         }
 
         if (!res.ok) {
-            console.error('❌ Error response:', data);
-            alert(`Error ${res.status}: ${data.message || 'Failed to save'}`);
+            // Previously this alerted here AND threw, which the outer catch
+            // then alerted again for the same failure - two popups for one
+            // error. Just throw; the catch block below handles the message.
             throw new Error(data.message || 'Failed to save');
         }
 
-        console.log('✅ Success:', data);
         alert('✅ Product saved successfully!');
 
         // ─── CLEANUP ──────────────────────────────────────
@@ -653,8 +680,8 @@ async function saveProduct() {
         loadStats();
 
     } catch (e) {
-        console.error('❌ Save error:', e);
-        alert(`❌ Error: ${e.message}`);
+        console.error('Save error:', e);
+        alert(`Error: ${e.message}`);
         errEl.textContent = e.message;
         errEl.classList.add('show');
     } finally {
@@ -662,36 +689,18 @@ async function saveProduct() {
         btn.textContent = editingProductId ? 'Update Product' : 'Add Product';
     }
 }
+
 async function deleteProduct(id) {
     if (!confirm('Delete this product permanently?')) return;
 
-    console.log(`🗑️ Deleting product: ${id}`);
-
     try {
-        const res = await fetch(`${API}/seller/products/${id}`, {
-            method: 'DELETE',
-            headers: authHeaders()
-        });
-
-        console.log(`📡 DELETE response status: ${res.status}`);
-
-        if (!res.ok) {
-            const error = await res.json();
-            console.log('❌ Error:', error);
-            alert(error.message || 'Could not delete product.');
-            return;
-        }
-
-        const data = await res.json();
-        console.log('✅ Delete success:', data);
+        await apiRequest(`/seller/products/${id}`, { method: 'DELETE' });
         alert('Product deleted successfully!');
-
         loadSellerProducts();
         loadStats();
-
     } catch (e) {
-        console.error('❌ Delete error:', e);
-        alert('Something went wrong.');
+        console.error('Delete error:', e);
+        alert(e.message || 'Could not delete product.');
     }
 }
 
@@ -721,22 +730,29 @@ async function saveShop() {
         errEl.classList.add('show');
         return;
     }
+    // Phone stays optional here too (CreateShopDto never requires it) - only
+    // checked if the field wasn't left blank.
+    if (phoneNumber && !isValidSaPhone(phoneNumber)) {
+        errEl.textContent = 'Please enter a valid South African phone number, e.g. 082 123 4567.';
+        errEl.classList.add('show');
+        return;
+    }
 
     errEl.classList.remove('show');
     btn.disabled = true;
     btn.textContent = 'Creating...';
 
     try {
-        const res = await fetch(`${API}/seller/shops`, {
+        await apiRequest('/seller/shops', {
             method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ shopName, shopDescription, city, province, phoneNumber })
+            body: JSON.stringify({
+                shopName,
+                shopDescription,
+                city,
+                province,
+                phoneNumber: phoneNumber.replace(/[\s-]/g, '')
+            })
         });
-
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Failed to create shop');
-        }
 
         closeModal('add-shop-modal');
         loadSellerShops();
@@ -750,6 +766,7 @@ async function saveShop() {
         btn.textContent = 'Create Shop';
     }
 }
+
 function renderDashboardSwitcher() {
     const user = getUser();
     if (!user || user.role === 'Admin') return;
@@ -780,7 +797,13 @@ function renderDashboardSwitcher() {
         `;
     }
 }
+
 // ── IMAGE PREVIEW ────────────────────────────────────────
+// These src values are data: URIs generated locally by FileReader from a
+// file the current user just picked from their own disk - never touch the
+// server, and can't affect anyone but the person who selected the file, so
+// there's no cross-user injection surface here the way there is with
+// server-sourced image URLs elsewhere in this file.
 
 let selectedFiles = [];
 
@@ -840,7 +863,11 @@ function removeImage(index) {
 }
 
 
-// ── INIT ──────────────────────────────────────────────────
-loadStats();
-loadSellerOrders();
-renderDashboardSwitcher();
+// ── INIT ─────────────────────────────────────────────────
+// Gated behind shouldRedirect so a user about to be redirected away doesn't
+// still fire off a batch of authenticated API calls in the meantime.
+if (!shouldRedirect) {
+    loadStats();
+    loadSellerOrders();
+    renderDashboardSwitcher();
+}
