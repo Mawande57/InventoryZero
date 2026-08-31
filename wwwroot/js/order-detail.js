@@ -11,6 +11,12 @@ if (!getToken()) {
     window.location.href = '/pages/login.html';
 }
 
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/pages/login.html';
+}
+
 function authHeaders() {
     return {
         'Content-Type': 'application/json',
@@ -19,6 +25,36 @@ function authHeaders() {
 }
 
 function fmt(n) { return 'R' + Number(n).toLocaleString('en-ZA'); }
+
+// Distinguishes "your connection looks offline" from "our server didn't
+// respond" - used only for genuine connectivity failures, not for a real
+// 404 (that's a different, more specific message below).
+function getConnectionMessage() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return "You appear to be offline. Check your internet connection and try again.";
+    }
+    return "We're having trouble reaching the server right now. This is usually temporary — please try again in a moment.";
+}
+
+// message is always one of our own fixed strings, never server/user data, so
+// no escaping is needed here - nothing in this file goes into innerHTML from
+// an external source.
+function showLoadError(message, showRetry) {
+    document.querySelector('.order-detail-container').innerHTML = `
+        <div style="text-align:center;padding:3rem;">
+            <div style="font-size:48px;margin-bottom:1rem;">🔍</div>
+            <h2 style="color:#991B1B;">Order Not Found</h2>
+            <p style="color:#6b7280;">${message}</p>
+            <div style="margin-top:1rem;display:flex;gap:10px;justify-content:center;">
+                ${showRetry ? `<button onclick="loadOrder()" style="padding:10px 24px;background:#1D9E75;color:#fff;border:none;border-radius:10px;cursor:pointer;">Try again</button>` : ''}
+                <button onclick="window.location.href='/pages/buyer-dashboard.html'" 
+                        style="padding:10px 24px;background:${showRetry ? '#e5e5e5' : '#1D9E75'};color:${showRetry ? '#333' : '#fff'};border:none;border-radius:10px;cursor:pointer;">
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+    `;
+}
 
 // ── GET ORDER ID FROM URL ──────────────────────────────
 function getOrderId() {
@@ -34,31 +70,36 @@ async function loadOrder() {
         return;
     }
 
+    let res;
     try {
-        const res = await fetch(`${API}/orders/${orderId}`, {
-            headers: authHeaders()
-        });
+        res = await fetch(`${API}/orders/${orderId}`, { headers: authHeaders() });
+    } catch (networkErr) {
+        // fetch() itself only throws for a genuine network failure - offline,
+        // DNS failure, server unreachable. That's different from "this order
+        // doesn't exist," and deserves a different message and a retry option.
+        console.error('Load order network error:', networkErr);
+        showLoadError(getConnectionMessage(), true);
+        return;
+    }
 
-        if (!res.ok) {
-            throw new Error('Order not found');
-        }
+    if (res.status === 401 || res.status === 403) {
+        logout();
+        return;
+    }
 
+    if (!res.ok) {
+        // A real 404/403 response - the order genuinely doesn't exist or
+        // isn't this buyer's. Retrying won't change that, so no retry button.
+        showLoadError("The order you're looking for doesn't exist or you don't have permission to view it.", false);
+        return;
+    }
+
+    try {
         const order = await res.json();
         renderOrder(order);
-
     } catch (e) {
-        console.error('Load order error:', e);
-        document.querySelector('.order-detail-container').innerHTML = `
-            <div style="text-align:center;padding:3rem;">
-                <div style="font-size:48px;margin-bottom:1rem;">🔍</div>
-                <h2 style="color:#991B1B;">Order Not Found</h2>
-                <p style="color:#6b7280;">The order you're looking for doesn't exist or you don't have permission to view it.</p>
-                <button onclick="window.location.href='/pages/buyer-dashboard.html'" 
-                        style="margin-top:1rem;padding:10px 24px;background:#1D9E75;color:#fff;border:none;border-radius:10px;cursor:pointer;">
-                    Back to Dashboard
-                </button>
-            </div>
-        `;
+        console.error('Could not read order response:', e);
+        showLoadError(getConnectionMessage(), true);
     }
 }
 
@@ -84,6 +125,13 @@ function renderOrder(order) {
     document.getElementById('order-total').textContent = fmt(order.totalAmount);
 
     // Shipping
+    // NOTE: order.shippingRecipientName is always undefined - OrderDetailDto
+    // has no such field, and neither the Order model nor PlaceOrderDto ever
+    // capture a recipient name at order-placement time (not even when a
+    // saved address with its own RecipientName is used). This will always
+    // fall through to the '—' placeholder until that's added on the backend
+    // (Order model + PlaceOrderDto + OrderService + checkout.js would all
+    // need to carry it through). Not something fixable from this file alone.
     document.getElementById('order-shipping-name').textContent = order.shippingRecipientName || '—';
     document.getElementById('order-shipping-address').textContent =
         `${order.shippingAddressLine1}${order.shippingAddressLine2 ? ', ' + order.shippingAddressLine2 : ''}, ${order.shippingCity}, ${order.shippingProvince}, ${order.shippingPostalCode}`;
@@ -106,8 +154,6 @@ function renderOrder(order) {
 // ─── UPDATE TRACKING TIMELINE ─────────────────────────────
 function updateTimeline(order) {
     const steps = document.querySelectorAll('.timeline-step');
-    const statuses = ['Pending', 'Processing', 'Shipped', 'Delivered'];
-    const currentIndex = statuses.indexOf(order.orderStatus);
 
     // Map order status to step index (0-based)
     const stepMap = {
