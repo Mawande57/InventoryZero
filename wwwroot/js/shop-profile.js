@@ -37,8 +37,36 @@ function isAdmin() {
     return user && user.role === 'Admin';
 }
 
+// Anything rendered via innerHTML has to go through this first. Shop/product
+// names come from the seller, not the visitor viewing this page, so a
+// malicious value could still execute script in the browser of anyone who
+// visits this (unauthenticated, publicly reachable) shop page.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// The id in the URL is only ever valid if it's a plain positive integer -
+// it gets used in fetch URLs and, for the contact button, directly inside an
+// inline onclick's JavaScript (not just an HTML attribute value), so
+// anything other than digits here is a potential injection point rather
+// than just a malformed request. Validating once at the source means every
+// place that uses shopId afterward can trust it.
+function parseShopId(raw) {
+    return raw && /^\d+$/.test(raw) ? raw : null;
+}
+
 // ── SAVED STATE ──────────────────────────────────────────
 let savedIds = new Set();
+
+// Holds the shop's currently-rendered products so cards can look themselves
+// up by id when clicked (see loadProducts/openModalById below for why).
+let currentProducts = [];
 
 // ── NAV AUTH CHECK ───────────────────────────────────────
 function checkAuth() {
@@ -60,7 +88,7 @@ function checkAuth() {
 
     navRight.innerHTML = `
         <span style="font-size:13px;color:rgba(255,255,255,0.6)">
-            Hi, ${user.fullName.split(' ')[0]}
+            Hi, ${escapeHtml(user.fullName.split(' ')[0])}
         </span>
         ${dashboardLinks}`;
 }
@@ -218,7 +246,7 @@ async function loadShop(shopId) {
         if (shop.isVerified) tags.push('Verified business');
         tags.push('Fast shipping');
         document.getElementById('sh-tags').innerHTML = tags
-            .map(t => `<span class="shop-tag">${t}</span>`).join('');
+            .map(t => `<span class="shop-tag">${escapeHtml(t)}</span>`).join('');
 
     } catch (e) {
         document.getElementById('sh-name').textContent = 'Could not load shop';
@@ -227,34 +255,16 @@ async function loadShop(shopId) {
 }
 
 // ── LOAD SHOP PRODUCTS ───────────────────────────────────
-// ── LOAD SHOP PRODUCTS ───────────────────────────────────
-
-// ── LOAD SHOP PRODUCTS ───────────────────────────────────
 
 async function loadProducts(shopId) {
     try {
         const res = await fetch(`${API}/shops/${shopId}/products`);
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
         const products = await res.json();
 
-        console.log('=== SHOP PRODUCTS DEBUG ===');
-        console.log('📦 Products from API:', products);
-        console.log('📦 Number of products:', products.length);
-
-        // 🔍 Check each product for shopOwnerId
-        products.forEach((p, index) => {
-            console.log(`📦 Product ${index + 1}:`, {
-                id: p.id,
-                title: p.title,
-                shopOwnerId: p.shopOwnerId,
-                hasShopOwnerId: p.hasOwnProperty('shopOwnerId')
-            });
-        });
-
-        // Get current user
-        const user = getUser();
-        console.log('👤 Current user:', user);
-        console.log('👤 User ID:', user?.id);
-        console.log('👤 User hasShop:', user?.hasShop);
+        // Keep the current products around so cards can look themselves up
+        // by id when clicked (see openModalById).
+        currentProducts = products;
 
         // Update listing count in stats and header
         document.getElementById('sh-listings').textContent = products.length;
@@ -271,28 +281,19 @@ async function loadProducts(shopId) {
             return;
         }
 
+        const user = getUser();
         const isAdminUser = isAdmin();
 
         document.getElementById('deals-grid').innerHTML = products.map(p => {
-            // ✅ Check if user owns this product
             const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
-
-            console.log(`🔍 Product "${p.title}":`, {
-                shopOwnerId: p.shopOwnerId,
-                userId: user?.id,
-                isOwnProduct: isOwnProduct,
-                match: user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId
-            });
-
-            // ✅ Hide heart for own products OR admin
             const hideHeart = isOwnProduct || isAdminUser;
 
             const imageHtml = p.mainImageUrl
-                ? `<img src="${p.mainImageUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;" />`
+                ? `<img src="${escapeHtml(p.mainImageUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px 12px 0 0;" />`
                 : EMOJIS[p.categoryName] || '📦';
 
             return `
-                <div class="deal" onclick='openModal(${JSON.stringify(p)})'>
+                <div class="deal" onclick="openModalById(${p.id})">
                     <div class="deal-img" style="background:${CAT_COLORS[p.categoryName] || '#f5f5f3'};position:relative;overflow:hidden;">
                         ${imageHtml}
                         <div class="deal-badges">
@@ -314,9 +315,9 @@ async function loadProducts(shopId) {
                         `}
                     </div>
                     <div class="deal-body">
-                        <div class="deal-cat">${p.categoryName || 'General'}</div>
-                        <div class="deal-title">${p.title}</div>
-                        <div class="deal-shop">${p.shopName}</div>
+                        <div class="deal-cat">${escapeHtml(p.categoryName || 'General')}</div>
+                        <div class="deal-title">${escapeHtml(p.title)}</div>
+                        <div class="deal-shop">${escapeHtml(p.shopName)}</div>
                         <div class="deal-pricing">
                             <span class="deal-price">${fmt(p.salePrice)}</span>
                             <span class="deal-orig">${fmt(p.originalPrice)}</span>
@@ -345,31 +346,37 @@ async function loadProducts(shopId) {
             </p>`;
     }
 }
-// ── MODAL ────────────────────────────────────────────────
+
 // ── MODAL ────────────────────────────────────────────────
 let currentImageIndex = 0;
 let productImages = [];
 
-function openModal(productData) {
-    console.log('=== SHOP PROFILE OPEN MODAL ===');
-    console.log('📦 Product data received:', productData);
+// Looks the clicked card's product up from the shop's current product list
+// instead of the card carrying the whole product as JSON inside its onclick
+// attribute. Embedding JSON.stringify(p) directly into a single-quoted HTML
+// attribute meant any field containing a single quote - a product title,
+// anything a seller typed - could break out of the attribute and inject
+// arbitrary markup/script into every visitor's browser.
+function openModalById(id) {
+    const product = currentProducts.find(p => p.id === id);
+    if (!product) {
+        console.error('Could not find product', id, 'in this shop\'s listings.');
+        return;
+    }
+    openModal(product);
+}
 
+function openModal(productData) {
     // If we don't have imageUrls, fetch the full product
     if (!productData.imageUrls) {
-        console.log('🔍 No imageUrls found, fetching full product details...');
         fetch(`${API}/products/${productData.slug}`)
             .then(res => {
-                console.log('📡 Fetch response status:', res.status);
                 if (!res.ok) throw new Error('Product not found');
                 return res.json();
             })
-            .then(fullProduct => {
-                console.log('✅ Full product fetched:', fullProduct);
-                renderModal(fullProduct);
-            })
+            .then(fullProduct => renderModal(fullProduct))
             .catch(err => {
-                console.error('❌ Error fetching full product:', err);
-                // Fallback: render with what we have
+                console.error('Error fetching full product:', err);
                 renderModal(productData);
             });
         return;
@@ -379,8 +386,6 @@ function openModal(productData) {
 }
 
 function renderModal(p) {
-    console.log('🎨 Rendering modal with:', p);
-
     const user = getUser();
     const isOwnProduct = user && user.hasShop && p.shopOwnerId && user.id === p.shopOwnerId;
     const isAdminUser = isAdmin();
@@ -388,7 +393,6 @@ function renderModal(p) {
     // ─── SETUP CAROUSEL ──────────────────────────────────
     productImages = p.imageUrls || [];
     currentImageIndex = 0;
-    console.log('📸 Images for carousel:', productImages.length, 'images');
 
     const carouselSlide = document.getElementById('m-carousel-slide');
     const dotsContainer = document.getElementById('carousel-dots');
@@ -396,13 +400,15 @@ function renderModal(p) {
     const prevBtn = document.getElementById('carousel-prev');
     const nextBtn = document.getElementById('carousel-next');
 
-    // Check if carousel elements exist
     if (carouselSlide) {
         if (productImages && productImages.length > 0) {
-            console.log('✅ Rendering', productImages.length, 'images');
+            // Escaped as an attribute value - uploaded image filenames
+            // incorporate the original filename the uploader chose, so this
+            // isn't guaranteed to be free of characters that could break out
+            // of the src attribute.
             carouselSlide.innerHTML = productImages.map((url, index) => `
                 <div class="carousel-image-wrapper" data-index="${index}" style="display:${index === 0 ? 'flex' : 'none'};width:100%;height:100%;align-items:center;justify-content:center;">
-                    <img src="${url}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'"/>
+                    <img src="${escapeHtml(url)}" alt="Product image ${index + 1}" style="width:100%;height:100%;object-fit:contain;max-height:220px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'"/>
                 </div>
             `).join('');
 
@@ -414,7 +420,6 @@ function renderModal(p) {
             prevBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
             nextBtn.style.display = productImages.length > 1 ? 'flex' : 'none';
         } else {
-            console.log('❌ No images, showing emoji');
             carouselSlide.innerHTML = `
                 <div class="emoji-placeholder" style="font-size:72px;">${EMOJIS[p.categoryName] || '📦'}</div>
             `;
@@ -430,6 +435,7 @@ function renderModal(p) {
     const modalHero = document.getElementById('m-img');
     modalHero.style.background = bg;
 
+    // All of these use textContent, not innerHTML - nothing to escape here.
     document.getElementById('m-cat').textContent = p.categoryName || 'General';
     document.getElementById('m-title').textContent = p.title;
     document.getElementById('m-price').textContent = fmt(p.salePrice);
@@ -488,7 +494,6 @@ function renderModal(p) {
     const existingSaveMsg = parentActions.querySelector('.own-product-save-msg');
     if (existingSaveMsg) existingSaveMsg.remove();
 
-    // ✅ Hide save button for own products OR admin
     if (isOwnProduct || isAdminUser) {
         saveBtn.style.display = 'none';
         const note = document.createElement('span');
@@ -504,7 +509,6 @@ function renderModal(p) {
     }
 
     document.getElementById('modal').classList.add('open');
-    console.log('=== END RENDER MODAL ===');
 }
 
 // ─── CAROUSEL FUNCTIONS ──────────────────────────────────
@@ -545,8 +549,6 @@ function closeModal() {
 
 // ── CONTACT SELLER ───────────────────────────────────────
 
-// ── CONTACT SELLER ───────────────────────────────────────
-
 function handleContact() {
     if (!getToken()) {
         window.location.href = '/pages/login.html';
@@ -554,7 +556,7 @@ function handleContact() {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const shopId = urlParams.get('id');
+    const shopId = parseShopId(urlParams.get('id'));
 
     if (!shopId) {
         alert('Shop not found.');
@@ -689,21 +691,11 @@ async function sendContactMessage(shopId) {
     btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite;"></i> Sending...';
 
     try {
-        // Simulate sending (fake delay)
+        // Simulate sending (fake delay). This intentionally never calls a
+        // real endpoint - ShopsController's ContactShopAsync action is
+        // commented out on the backend too, so this stays a UI-only stub
+        // rather than sending a request that would just 404.
         await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // ✅ FAKE SUCCESS - always succeeds
-        // In production, you would uncomment this:
-        // const res = await fetch(`${API}/shops/${shopId}/contact`, {
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json',
-        //         'Authorization': 'Bearer ' + getToken()
-        //     },
-        //     body: JSON.stringify({ message: msg })
-        // });
-
-        // if (!res.ok) throw new Error('Failed to send');
 
         // Show success state
         const modalBody = document.querySelector('.contact-modal-body');
@@ -743,7 +735,7 @@ async function sendContactMessage(shopId) {
 // ── INIT ─────────────────────────────────────────────────
 
 const urlParams = new URLSearchParams(window.location.search);
-const shopId = urlParams.get('id');
+const shopId = parseShopId(urlParams.get('id'));
 
 if (!shopId) {
     document.getElementById('sh-name').textContent = 'No shop specified';
