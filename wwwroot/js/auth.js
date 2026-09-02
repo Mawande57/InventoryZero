@@ -1,5 +1,5 @@
-﻿const API = 'https://localhost:7237/api';
-
+﻿//const API = 'https://localhost:7237/api';
+const API = '/api';
 // ── SHARED HELPERS ──────────────────────────────────────
 function showError(msg) {
     const el = document.getElementById('err-msg');

@@ -1,5 +1,5 @@
-﻿const API = 'https://localhost:7237/api';
-
+﻿//const API = 'https://localhost:7237/api';
+const API = '/api';
 const EMOJIS = {
     'Clothing': '🧥', 'Electronics': '📱',
     'Food & Drinks': '🥤', 'Furniture': '🛋️',

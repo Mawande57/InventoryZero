@@ -105,13 +105,35 @@ var app = builder.Build();
 
 // ─── MIDDLEWARE PIPELINE ─────────────────────────────────────────
 app.UseSerilogRequestLogging();
+
+// Swagger
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// CORS
 app.UseCors("AllowAll");
+
+// Static files - THIS SERVES YOUR WWWROOT
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.UseStaticFiles();
+
+// ─── SERVE INDEX.HTML FROM PAGES FOLDER ─────────────────────────
+app.MapGet("/", async (HttpContext context) =>
+{
+    var filePath = Path.Combine(app.Environment.WebRootPath, "pages", "index.html");
+    if (File.Exists(filePath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(filePath);
+    }
+    else
+    {
+        await context.Response.WriteAsync("InventoryZero API is running!");
+    }
+});
 
 // ─── TEST ENDPOINT ──────────────────────────────────────────────
 app.MapGet("/test-db", async (InventoryZeroDbContext db) =>
@@ -148,6 +170,7 @@ app.MapGet("/test-db", async (InventoryZeroDbContext db) =>
     }
 });
 
+// ─── STARTUP LOGGING ─────────────────────────────────────────────
 try
 {
     Log.Information("Starting up InventoryZero API...");

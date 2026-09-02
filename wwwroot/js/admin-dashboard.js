@@ -1,5 +1,6 @@
 ﻿// wwwroot/js/admin-dashboard.js
-const API = 'https://localhost:7237/api';
+//const API = 'https://localhost:7237/api';
+const API = '/api';
 
 // ── AUTH ──────────────────────────────────────────────────
 function getToken() { return localStorage.getItem('token'); }
