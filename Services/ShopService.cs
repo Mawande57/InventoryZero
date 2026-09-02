@@ -22,9 +22,6 @@ namespace InventoryZeroAPI.Services
         {
             if (id <= 0) return null;
 
-            // Projected straight to the DTO instead of Include + map afterward -
-            // no need to materialize the full Shop/User entities just to read a
-            // handful of fields off each.
             return await _context.Shops
                 .AsNoTracking()
                 .Where(s => s.Id == id)
@@ -54,10 +51,10 @@ namespace InventoryZeroAPI.Services
         {
             if (shopId <= 0) return new List<ProductCardDto>();
 
-            // Same reasoning as ProductService/SellerService: project straight to
-            // the DTO instead of Include-ing the full Shop/Category/ProductImages
-            // graph for every product just to read a few scalar fields and one
-            // image URL off each.
+            // EARLY RETURN: If no products exist
+            var anyProducts = await _context.Products.AsNoTracking().AnyAsync();
+            if (!anyProducts) return new List<ProductCardDto>();
+
             return await _context.Products
                 .AsNoTracking()
                 .Where(p =>
@@ -65,6 +62,7 @@ namespace InventoryZeroAPI.Services
                     p.Status == "Active" &&
                     p.AdminApproved &&
                     p.ListingEndDate > DateTime.Now &&
+                    p.Shop != null &&           // ← FIXED: Added null check
                     p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => new ProductCardDto
