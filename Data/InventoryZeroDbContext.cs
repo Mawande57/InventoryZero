@@ -44,13 +44,6 @@ public partial class InventoryZeroDbContext : DbContext
 
     public virtual DbSet<UserAddress> UserAddresses { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        if (!optionsBuilder.IsConfigured)
-        {
-            optionsBuilder.UseSqlServer("Server=localhost\\SQLEXPRESS;Database=InventoryZeroDB;Trusted_Connection=True;TrustServerCertificate=True;");
-        }
-    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

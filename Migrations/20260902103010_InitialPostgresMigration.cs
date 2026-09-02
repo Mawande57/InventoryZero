@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace InventoryZeroAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialPostgresMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -493,20 +493,20 @@ namespace InventoryZeroAPI.Migrations
                 columns: new[] { "Id", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "ParentCategoryId", "Slug", "SortOrder" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(3985), "Fashion, apparel, and accessories", "🧥", true, "Clothing", null, "clothing", 1 },
-                    { 2, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(3994), "Phones, laptops, gadgets", "📱", true, "Electronics", null, "electronics", 2 },
-                    { 3, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(3997), "Food items and beverages", "🥤", true, "Food & Drinks", null, "food-drinks", 3 },
-                    { 4, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(4058), "Home and office furniture", "🛋️", true, "Furniture", null, "furniture", 4 },
-                    { 5, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(4061), "Tools and building materials", "🔧", true, "Hardware", null, "hardware", 5 },
-                    { 6, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(4064), "Sports equipment and fitness gear", "🏋️", true, "Sport & Fitness", null, "sport-fitness", 6 },
-                    { 7, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(4067), "Cosmetics and health products", "💄", true, "Beauty & Health", null, "beauty-health", 7 },
-                    { 8, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(4070), "Everything else", "📦", true, "Other", null, "other", 8 }
+                    { 1, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7019), "Fashion, apparel, and accessories", "🧥", true, "Clothing", null, "clothing", 1 },
+                    { 2, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7025), "Phones, laptops, gadgets", "📱", true, "Electronics", null, "electronics", 2 },
+                    { 3, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7029), "Food items and beverages", "🥤", true, "Food & Drinks", null, "food-drinks", 3 },
+                    { 4, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7032), "Home and office furniture", "🛋️", true, "Furniture", null, "furniture", 4 },
+                    { 5, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7035), "Tools and building materials", "🔧", true, "Hardware", null, "hardware", 5 },
+                    { 6, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7039), "Sports equipment and fitness gear", "🏋️", true, "Sport & Fitness", null, "sport-fitness", 6 },
+                    { 7, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7042), "Cosmetics and health products", "💄", true, "Beauty & Health", null, "beauty-health", 7 },
+                    { 8, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(7045), "Everything else", "📦", true, "Other", null, "other", 8 }
                 });
 
             migrationBuilder.InsertData(
                 table: "Users",
                 columns: new[] { "Id", "CreatedAt", "Email", "FullName", "IsActive", "IsEmailVerified", "IsPhoneVerified", "LastLoginAt", "PasswordHash", "PhoneNumber", "ProfilePictureUrl", "Rating", "Role", "StripeAccountId", "StripeCustomerId", "TotalReviews" },
-                values: new object[] { 1, new DateTime(2026, 8, 19, 18, 28, 11, 972, DateTimeKind.Local).AddTicks(3117), "admin@inventoryzero.com", "System Administrator", true, true, false, null, "$2a$11$Xp67APt7LZ9VAKpzo.wqDeVa.d8lI1BaFAi8zVHA1U2jJE9t40y42", null, null, 0m, "Admin", null, null, 0 });
+                values: new object[] { 1, new DateTime(2026, 9, 2, 12, 30, 8, 954, DateTimeKind.Local).AddTicks(6158), "admin@inventoryzero.com", "System Administrator", true, true, false, null, "$2a$11$jHCoBFcNaKah4xioLU7sgOovckdYbiL6FYXxTUZCK2Vnd0OQDjuBm", null, null, 0m, "Admin", null, null, 0 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ActivityLogs_AdminUserId",

@@ -9,8 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Register DbContext
 builder.Services.AddDbContext<InventoryZeroDbContext>(options =>
-    options.UseSqlServer(builder.Configuration
-        .GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register Auth Service
 builder.Services.AddScoped<IAuthService, AuthService>();
