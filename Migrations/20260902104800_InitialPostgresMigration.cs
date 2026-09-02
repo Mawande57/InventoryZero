@@ -494,20 +494,20 @@ namespace InventoryZeroAPI.Migrations
                 columns: new[] { "Id", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "ParentCategoryId", "Slug", "SortOrder" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8811), "Fashion, apparel, and accessories", "🧥", true, "Clothing", null, "clothing", 1 },
-                    { 2, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8816), "Phones, laptops, gadgets", "📱", true, "Electronics", null, "electronics", 2 },
-                    { 3, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8819), "Food items and beverages", "🥤", true, "Food & Drinks", null, "food-drinks", 3 },
-                    { 4, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8822), "Home and office furniture", "🛋️", true, "Furniture", null, "furniture", 4 },
-                    { 5, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8825), "Tools and building materials", "🔧", true, "Hardware", null, "hardware", 5 },
-                    { 6, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8828), "Sports equipment and fitness gear", "🏋️", true, "Sport & Fitness", null, "sport-fitness", 6 },
-                    { 7, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8831), "Cosmetics and health products", "💄", true, "Beauty & Health", null, "beauty-health", 7 },
-                    { 8, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8834), "Everything else", "📦", true, "Other", null, "other", 8 }
+                    { 1, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1903), "Fashion, apparel, and accessories", "🧥", true, "Clothing", null, "clothing", 1 },
+                    { 2, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1908), "Phones, laptops, gadgets", "📱", true, "Electronics", null, "electronics", 2 },
+                    { 3, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1911), "Food items and beverages", "🥤", true, "Food & Drinks", null, "food-drinks", 3 },
+                    { 4, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1913), "Home and office furniture", "🛋️", true, "Furniture", null, "furniture", 4 },
+                    { 5, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1916), "Tools and building materials", "🔧", true, "Hardware", null, "hardware", 5 },
+                    { 6, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1919), "Sports equipment and fitness gear", "🏋️", true, "Sport & Fitness", null, "sport-fitness", 6 },
+                    { 7, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1921), "Cosmetics and health products", "💄", true, "Beauty & Health", null, "beauty-health", 7 },
+                    { 8, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1924), "Everything else", "📦", true, "Other", null, "other", 8 }
                 });
 
             migrationBuilder.InsertData(
                 table: "Users",
                 columns: new[] { "Id", "CreatedAt", "Email", "FullName", "IsActive", "IsEmailVerified", "IsPhoneVerified", "LastLoginAt", "PasswordHash", "PhoneNumber", "ProfilePictureUrl", "Rating", "Role", "StripeAccountId", "StripeCustomerId", "TotalReviews" },
-                values: new object[] { 1, new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(7867), "admin@inventoryzero.com", "System Administrator", true, true, false, null, "$2a$11$ZQasN.B/M1ZFBbTVt4Bgweq54KNqdex9FBy5Zu2smeBTpa/OlzJPS", null, null, 0m, "Admin", null, null, 0 });
+                values: new object[] { 1, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1047), "admin@inventoryzero.com", "System Administrator", true, true, false, null, "$2a$11$01essC7ZlWDUxfCYdlcNCu7rlBKVZqyjLBqUarWHgAi8kBVjLBImi", null, null, 0m, "Admin", null, null, 0 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ActivityLogs_AdminUserId",

@@ -135,7 +135,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8811),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1903),
                             Description = "Fashion, apparel, and accessories",
                             IconUrl = "🧥",
                             IsActive = true,
@@ -146,7 +146,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8816),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1908),
                             Description = "Phones, laptops, gadgets",
                             IconUrl = "📱",
                             IsActive = true,
@@ -157,7 +157,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8819),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1911),
                             Description = "Food items and beverages",
                             IconUrl = "🥤",
                             IsActive = true,
@@ -168,7 +168,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8822),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1913),
                             Description = "Home and office furniture",
                             IconUrl = "🛋️",
                             IsActive = true,
@@ -179,7 +179,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8825),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1916),
                             Description = "Tools and building materials",
                             IconUrl = "🔧",
                             IsActive = true,
@@ -190,7 +190,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8828),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1919),
                             Description = "Sports equipment and fitness gear",
                             IconUrl = "🏋️",
                             IsActive = true,
@@ -201,7 +201,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 7,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8831),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1921),
                             Description = "Cosmetics and health products",
                             IconUrl = "💄",
                             IsActive = true,
@@ -212,7 +212,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 8,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(8834),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1924),
                             Description = "Everything else",
                             IconUrl = "📦",
                             IsActive = true,
@@ -1112,13 +1112,13 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 9, 2, 12, 41, 50, 305, DateTimeKind.Local).AddTicks(7867),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1047),
                             Email = "admin@inventoryzero.com",
                             FullName = "System Administrator",
                             IsActive = true,
                             IsEmailVerified = true,
                             IsPhoneVerified = false,
-                            PasswordHash = "$2a$11$ZQasN.B/M1ZFBbTVt4Bgweq54KNqdex9FBy5Zu2smeBTpa/OlzJPS",
+                            PasswordHash = "$2a$11$01essC7ZlWDUxfCYdlcNCu7rlBKVZqyjLBqUarWHgAi8kBVjLBImi",
                             Rating = 0m,
                             Role = "Admin",
                             TotalReviews = 0
