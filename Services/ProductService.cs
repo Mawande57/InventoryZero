@@ -23,6 +23,19 @@ namespace InventoryZeroAPI.Services
             if (filter.Page < 1) throw new ArgumentOutOfRangeException(nameof(filter), "Page must be 1 or greater.");
             if (filter.PageSize < 1) throw new ArgumentOutOfRangeException(nameof(filter), "Page size must be 1 or greater.");
 
+            // EARLY RETURN: If no products exist, return empty result
+            var anyProducts = await _context.Products.AsNoTracking().AnyAsync();
+            if (!anyProducts)
+            {
+                return new PagedResultDto<ProductCardDto>
+                {
+                    Items = new List<ProductCardDto>(),
+                    TotalCount = 0,
+                    Page = filter.Page,
+                    PageSize = filter.PageSize
+                };
+            }
+
             // Start with base query — only active, admin approved, not expired
             // This is called building a query — nothing hits the DB yet.
             //
@@ -142,6 +155,10 @@ namespace InventoryZeroAPI.Services
         {
             if (string.IsNullOrWhiteSpace(slug)) return null;
 
+            // EARLY RETURN: If no products exist, return null
+            var anyProducts = await _context.Products.AsNoTracking().AnyAsync();
+            if (!anyProducts) return null;
+
             // This one stays tracked (default, no AsNoTracking) because we increment
             // Views on the loaded entity and save it below.
             //
@@ -218,6 +235,10 @@ namespace InventoryZeroAPI.Services
         {
             if (string.IsNullOrWhiteSpace(categorySlug)) return new List<ProductCardDto>();
 
+            // EARLY RETURN: If no products exist, return empty list
+            var anyProducts = await _context.Products.AsNoTracking().AnyAsync();
+            if (!anyProducts) return new List<ProductCardDto>();
+
             // Same reasoning as GetAllAsync: project straight to the DTO instead of
             // Include-ing the full Shop/Category/ProductImages graph for every product.
             return await _context.Products
@@ -262,6 +283,10 @@ namespace InventoryZeroAPI.Services
         public async Task<List<ProductCardDto>> GetByShopAsync(int shopId)
         {
             if (shopId <= 0) return new List<ProductCardDto>();
+
+            // EARLY RETURN: If no products exist, return empty list
+            var anyProducts = await _context.Products.AsNoTracking().AnyAsync();
+            if (!anyProducts) return new List<ProductCardDto>();
 
             // Same reasoning as GetAllAsync. Note: ShopLogoUrl isn't populated here,
             // same as the original - left that as-is since it changes what's returned,
