@@ -39,6 +39,7 @@ namespace InventoryZeroAPI.Services
                     p.Status == "Active" &&
                     p.AdminApproved &&
                     p.ListingEndDate > DateTime.Now &&
+                    p.Shop != null &&
                     p.Shop.IsVerified == true);
 
             // Apply filters one by one if they were provided
@@ -159,6 +160,7 @@ namespace InventoryZeroAPI.Services
                     p.Slug == slug &&
                     p.Status == "Active" &&
                     p.AdminApproved &&
+                    p.Shop != null &&
                     p.Shop.IsVerified == true);
 
             if (product == null) return null;
@@ -226,6 +228,7 @@ namespace InventoryZeroAPI.Services
                     p.Status == "Active" &&
                     p.AdminApproved &&
                     p.ListingEndDate > DateTime.Now &&
+                    p.Shop != null &&
                     p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => new ProductCardDto
@@ -270,6 +273,7 @@ namespace InventoryZeroAPI.Services
                     p.Status == "Active" &&
                     p.AdminApproved &&
                     p.ListingEndDate > DateTime.Now &&
+                    p.Shop != null &&
                     p.Shop.IsVerified == true)
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => new ProductCardDto
