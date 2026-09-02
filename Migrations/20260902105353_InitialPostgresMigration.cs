@@ -27,7 +27,7 @@ namespace InventoryZeroAPI.Migrations
                     ParentCategoryId = table.Column<int>(type: "integer", nullable: true),
                     SortOrder = table.Column<int>(type: "integer", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -57,8 +57,8 @@ namespace InventoryZeroAPI.Migrations
                     IsPhoneVerified = table.Column<bool>(type: "boolean", nullable: false),
                     Rating = table.Column<decimal>(type: "numeric(3,2)", nullable: false),
                     TotalReviews = table.Column<int>(type: "integer", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
-                    LastLoginAt = table.Column<DateTime>(type: "datetime", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()"),
+                    LastLoginAt = table.Column<DateTime>(type: "timestamp", nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
                 },
                 constraints: table =>
@@ -80,7 +80,7 @@ namespace InventoryZeroAPI.Migrations
                     NewValue = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
                     IpAddress = table.Column<string>(type: "character varying(45)", maxLength: 45, nullable: true),
                     UserAgent = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -105,8 +105,8 @@ namespace InventoryZeroAPI.Migrations
                     Data = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
                     IsRead = table.Column<bool>(type: "boolean", nullable: false),
                     IsEmailed = table.Column<bool>(type: "boolean", nullable: false),
-                    ReadAt = table.Column<DateTime>(type: "datetime", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    ReadAt = table.Column<DateTime>(type: "timestamp", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -141,13 +141,13 @@ namespace InventoryZeroAPI.Migrations
                     BusinessRegistrationNumber = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     TaxNumber = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     IsVerified = table.Column<bool>(type: "boolean", nullable: false),
-                    VerificationDate = table.Column<DateTime>(type: "datetime", nullable: true),
+                    VerificationDate = table.Column<DateTime>(type: "timestamp", nullable: true),
                     VerificationNotes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CommissionRate = table.Column<decimal>(type: "numeric(5,2)", nullable: false, defaultValueSql: "((15.00))"),
+                    CommissionRate = table.Column<decimal>(type: "numeric(5,2)", nullable: false, defaultValueSql: "15.00"),
                     PayoutDelayDays = table.Column<int>(type: "integer", nullable: false, defaultValue: 7),
                     TotalSales = table.Column<int>(type: "integer", nullable: false),
                     TotalRevenue = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()"),
                     Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Pending")
                 },
                 constraints: table =>
@@ -177,7 +177,7 @@ namespace InventoryZeroAPI.Migrations
                     RecipientName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     IsDefault = table.Column<bool>(type: "boolean", nullable: false),
                     AddressType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Home"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -209,7 +209,7 @@ namespace InventoryZeroAPI.Migrations
                     PaymentIntentId = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     PaymentMethod = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     PaymentStatus = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Pending"),
-                    PaidAt = table.Column<DateTime>(type: "datetime", nullable: true),
+                    PaidAt = table.Column<DateTime>(type: "timestamp", nullable: true),
                     OrderStatus = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Pending"),
                     ShippingAddressLine1 = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     ShippingAddressLine2 = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
@@ -220,14 +220,14 @@ namespace InventoryZeroAPI.Migrations
                     ShippingPhoneNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     TrackingNumber = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     TrackingCarrier = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    ShippedAt = table.Column<DateTime>(type: "datetime", nullable: true),
-                    DeliveredAt = table.Column<DateTime>(type: "datetime", nullable: true),
-                    CancelledAt = table.Column<DateTime>(type: "datetime", nullable: true),
+                    ShippedAt = table.Column<DateTime>(type: "timestamp", nullable: true),
+                    DeliveredAt = table.Column<DateTime>(type: "timestamp", nullable: true),
+                    CancelledAt = table.Column<DateTime>(type: "timestamp", nullable: true),
                     CancellationReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     BuyerNotes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     SellerNotes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()"),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -269,16 +269,16 @@ namespace InventoryZeroAPI.Migrations
                     Length = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
                     Width = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
                     Height = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
-                    ExpiryDate = table.Column<DateTime>(type: "datetime", nullable: true),
-                    ListingEndDate = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(dateadd(day,(7),getdate()))"),
+                    ExpiryDate = table.Column<DateTime>(type: "timestamp", nullable: true),
+                    ListingEndDate = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "(NOW() + INTERVAL '7 days')"),
                     IsUrgent = table.Column<bool>(type: "boolean", nullable: false),
                     Views = table.Column<int>(type: "integer", nullable: false),
                     Saves = table.Column<int>(type: "integer", nullable: false),
                     Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Active"),
                     AdminApproved = table.Column<bool>(type: "boolean", nullable: false),
-                    ApprovedAt = table.Column<DateTime>(type: "datetime", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime", nullable: true)
+                    ApprovedAt = table.Column<DateTime>(type: "timestamp", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()"),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -309,9 +309,9 @@ namespace InventoryZeroAPI.Migrations
                     Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Open"),
                     ResolutionNotes = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
                     ResolvedByUserId = table.Column<int>(type: "integer", nullable: true),
-                    ResolvedAt = table.Column<DateTime>(type: "datetime", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime", nullable: true)
+                    ResolvedAt = table.Column<DateTime>(type: "timestamp", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()"),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -344,9 +344,9 @@ namespace InventoryZeroAPI.Migrations
                     Amount = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     StripeTransferId = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Pending"),
-                    ProcessedAt = table.Column<DateTime>(type: "datetime", nullable: true),
+                    ProcessedAt = table.Column<DateTime>(type: "timestamp", nullable: true),
                     ErrorMessage = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -374,7 +374,7 @@ namespace InventoryZeroAPI.Migrations
                     Quantity = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
                     UnitPrice = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     Subtotal = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -403,7 +403,7 @@ namespace InventoryZeroAPI.Migrations
                     IsMain = table.Column<bool>(type: "boolean", nullable: false),
                     SortOrder = table.Column<int>(type: "integer", nullable: false),
                     AltText = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -433,11 +433,11 @@ namespace InventoryZeroAPI.Migrations
                     Cons = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     IsVerifiedPurchase = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     SellerResponse = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
-                    SellerResponseAt = table.Column<DateTime>(type: "datetime", nullable: true),
+                    SellerResponseAt = table.Column<DateTime>(type: "timestamp", nullable: true),
                     HelpfulCount = table.Column<int>(type: "integer", nullable: false),
                     Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Approved"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())"),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()"),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -472,7 +472,7 @@ namespace InventoryZeroAPI.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     UserId = table.Column<int>(type: "integer", nullable: false),
                     ProductId = table.Column<int>(type: "integer", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                    CreatedAt = table.Column<DateTime>(type: "timestamp", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -494,20 +494,20 @@ namespace InventoryZeroAPI.Migrations
                 columns: new[] { "Id", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "ParentCategoryId", "Slug", "SortOrder" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1903), "Fashion, apparel, and accessories", "🧥", true, "Clothing", null, "clothing", 1 },
-                    { 2, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1908), "Phones, laptops, gadgets", "📱", true, "Electronics", null, "electronics", 2 },
-                    { 3, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1911), "Food items and beverages", "🥤", true, "Food & Drinks", null, "food-drinks", 3 },
-                    { 4, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1913), "Home and office furniture", "🛋️", true, "Furniture", null, "furniture", 4 },
-                    { 5, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1916), "Tools and building materials", "🔧", true, "Hardware", null, "hardware", 5 },
-                    { 6, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1919), "Sports equipment and fitness gear", "🏋️", true, "Sport & Fitness", null, "sport-fitness", 6 },
-                    { 7, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1921), "Cosmetics and health products", "💄", true, "Beauty & Health", null, "beauty-health", 7 },
-                    { 8, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1924), "Everything else", "📦", true, "Other", null, "other", 8 }
+                    { 1, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9115), "Fashion, apparel, and accessories", "🧥", true, "Clothing", null, "clothing", 1 },
+                    { 2, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9119), "Phones, laptops, gadgets", "📱", true, "Electronics", null, "electronics", 2 },
+                    { 3, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9122), "Food items and beverages", "🥤", true, "Food & Drinks", null, "food-drinks", 3 },
+                    { 4, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9181), "Home and office furniture", "🛋️", true, "Furniture", null, "furniture", 4 },
+                    { 5, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9184), "Tools and building materials", "🔧", true, "Hardware", null, "hardware", 5 },
+                    { 6, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9186), "Sports equipment and fitness gear", "🏋️", true, "Sport & Fitness", null, "sport-fitness", 6 },
+                    { 7, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9189), "Cosmetics and health products", "💄", true, "Beauty & Health", null, "beauty-health", 7 },
+                    { 8, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9192), "Everything else", "📦", true, "Other", null, "other", 8 }
                 });
 
             migrationBuilder.InsertData(
                 table: "Users",
                 columns: new[] { "Id", "CreatedAt", "Email", "FullName", "IsActive", "IsEmailVerified", "IsPhoneVerified", "LastLoginAt", "PasswordHash", "PhoneNumber", "ProfilePictureUrl", "Rating", "Role", "StripeAccountId", "StripeCustomerId", "TotalReviews" },
-                values: new object[] { 1, new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1047), "admin@inventoryzero.com", "System Administrator", true, true, false, null, "$2a$11$01essC7ZlWDUxfCYdlcNCu7rlBKVZqyjLBqUarWHgAi8kBVjLBImi", null, null, 0m, "Admin", null, null, 0 });
+                values: new object[] { 1, new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(8315), "admin@inventoryzero.com", "System Administrator", true, true, false, null, "$2a$11$x4Kn8wAbDt20IsG9GsY9nuzx7.8THxHGQSDIXxW5gCI51.JzOpPHq", null, null, 0m, "Admin", null, null, 0 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ActivityLogs_AdminUserId",

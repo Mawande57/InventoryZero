@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace InventoryZeroAPI.Migrations
 {
     [DbContext(typeof(InventoryZeroDbContext))]
-    [Migration("20260902104800_InitialPostgresMigration")]
+    [Migration("20260902105353_InitialPostgresMigration")]
     partial class InitialPostgresMigration
     {
         /// <inheritdoc />
@@ -43,8 +43,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<int>("EntityId")
                         .HasColumnType("integer");
@@ -92,8 +92,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
@@ -138,7 +138,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1903),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9115),
                             Description = "Fashion, apparel, and accessories",
                             IconUrl = "🧥",
                             IsActive = true,
@@ -149,7 +149,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1908),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9119),
                             Description = "Phones, laptops, gadgets",
                             IconUrl = "📱",
                             IsActive = true,
@@ -160,7 +160,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1911),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9122),
                             Description = "Food items and beverages",
                             IconUrl = "🥤",
                             IsActive = true,
@@ -171,7 +171,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1913),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9181),
                             Description = "Home and office furniture",
                             IconUrl = "🛋️",
                             IsActive = true,
@@ -182,7 +182,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1916),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9184),
                             Description = "Tools and building materials",
                             IconUrl = "🔧",
                             IsActive = true,
@@ -193,7 +193,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1919),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9186),
                             Description = "Sports equipment and fitness gear",
                             IconUrl = "🏋️",
                             IsActive = true,
@@ -204,7 +204,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 7,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1921),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9189),
                             Description = "Cosmetics and health products",
                             IconUrl = "💄",
                             IsActive = true,
@@ -215,7 +215,7 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 8,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1924),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(9192),
                             Description = "Everything else",
                             IconUrl = "📦",
                             IsActive = true,
@@ -235,8 +235,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -263,7 +263,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("character varying(2000)");
 
                     b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<int?>("ResolvedByUserId")
                         .HasColumnType("integer");
@@ -276,7 +276,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasDefaultValue("Open");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.HasKey("Id")
                         .HasName("PK__Disputes__3214EC075E838A41");
@@ -302,8 +302,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("Data")
                         .HasMaxLength(2000)
@@ -321,7 +321,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("character varying(1000)");
 
                     b.Property<DateTime?>("ReadAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -368,15 +368,15 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<DateTime?>("CancelledAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<DateTime?>("DeliveredAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<string>("OrderNumber")
                         .IsRequired()
@@ -391,7 +391,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasDefaultValue("Pending");
 
                     b.Property<DateTime?>("PaidAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<string>("PaymentIntentId")
                         .HasMaxLength(255)
@@ -424,7 +424,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("decimal(18, 2)");
 
                     b.Property<DateTime?>("ShippedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<string>("ShippingAddressLine1")
                         .IsRequired()
@@ -489,7 +489,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("decimal(18, 2)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.HasKey("Id")
                         .HasName("PK__Orders__3214EC07E4D934FF");
@@ -522,8 +522,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("integer");
@@ -565,8 +565,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("ErrorMessage")
                         .HasMaxLength(500)
@@ -576,7 +576,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("ProcessedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<int>("ShopId")
                         .HasColumnType("integer");
@@ -616,7 +616,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<string>("Barcode")
                         .HasMaxLength(100)
@@ -638,8 +638,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("Description")
                         .HasMaxLength(4000)
@@ -649,7 +649,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("decimal(5, 2)");
 
                     b.Property<DateTime?>("ExpiryDate")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<decimal?>("Height")
                         .HasColumnType("decimal(10, 2)");
@@ -662,8 +662,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("ListingEndDate")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(dateadd(day,(7),getdate()))");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("(NOW() + INTERVAL '7 days')");
 
                     b.Property<decimal>("OriginalPrice")
                         .HasColumnType("decimal(18, 2)");
@@ -711,7 +711,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<int>("Views")
                         .HasColumnType("integer");
@@ -757,8 +757,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("ImageUrl")
                         .IsRequired()
@@ -804,8 +804,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<int>("HelpfulCount")
                         .HasColumnType("integer");
@@ -836,7 +836,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("character varying(1000)");
 
                     b.Property<DateTime?>("SellerResponseAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<int>("ShopId")
                         .HasColumnType("integer");
@@ -853,7 +853,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.HasKey("Id")
                         .HasName("PK__Reviews__3214EC0730B6A75F");
@@ -881,8 +881,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("integer");
@@ -930,7 +930,7 @@ namespace InventoryZeroAPI.Migrations
                     b.Property<decimal>("CommissionRate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(5, 2)")
-                        .HasDefaultValueSql("((15.00))");
+                        .HasDefaultValueSql("15.00");
 
                     b.Property<string>("Country")
                         .IsRequired()
@@ -945,8 +945,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<bool>("IsVerified")
                         .HasColumnType("boolean");
@@ -1008,7 +1008,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("VerificationDate")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<string>("VerificationNotes")
                         .HasMaxLength(500)
@@ -1038,8 +1038,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -1063,7 +1063,7 @@ namespace InventoryZeroAPI.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("datetime");
+                        .HasColumnType("timestamp");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -1115,13 +1115,13 @@ namespace InventoryZeroAPI.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 9, 2, 10, 47, 58, 642, DateTimeKind.Utc).AddTicks(1047),
+                            CreatedAt = new DateTime(2026, 9, 2, 10, 53, 51, 405, DateTimeKind.Utc).AddTicks(8315),
                             Email = "admin@inventoryzero.com",
                             FullName = "System Administrator",
                             IsActive = true,
                             IsEmailVerified = true,
                             IsPhoneVerified = false,
-                            PasswordHash = "$2a$11$01essC7ZlWDUxfCYdlcNCu7rlBKVZqyjLBqUarWHgAi8kBVjLBImi",
+                            PasswordHash = "$2a$11$x4Kn8wAbDt20IsG9GsY9nuzx7.8THxHGQSDIXxW5gCI51.JzOpPHq",
                             Rating = 0m,
                             Role = "Admin",
                             TotalReviews = 0
@@ -1166,8 +1166,8 @@ namespace InventoryZeroAPI.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<bool>("IsDefault")
                         .HasColumnType("boolean");

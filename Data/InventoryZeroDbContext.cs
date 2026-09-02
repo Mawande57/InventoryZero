@@ -60,7 +60,7 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.Action).HasMaxLength(100);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.EntityType).HasMaxLength(100);
             entity.Property(e => e.IpAddress).HasMaxLength(45);
             entity.Property(e => e.NewValue).HasMaxLength(2000);
@@ -81,7 +81,7 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.IconUrl).HasMaxLength(500);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
@@ -103,16 +103,16 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.Description).HasMaxLength(2000);
             entity.Property(e => e.EvidenceUrls).HasMaxLength(2000);
             entity.Property(e => e.Reason).HasMaxLength(50);
             entity.Property(e => e.ResolutionNotes).HasMaxLength(2000);
-            entity.Property(e => e.ResolvedAt).HasColumnType("timestamp");
+            entity.Property(e => e.ResolvedAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .HasDefaultValue("Open");
-            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp");
+            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp with time zone");
 
             entity.HasOne(d => d.Order).WithMany(p => p.Disputes)
                 .HasForeignKey(d => d.OrderId)
@@ -141,10 +141,10 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.Data).HasMaxLength(2000);
             entity.Property(e => e.Message).HasMaxLength(1000);
-            entity.Property(e => e.ReadAt).HasColumnType("timestamp");
+            entity.Property(e => e.ReadAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.Title).HasMaxLength(200);
             entity.Property(e => e.Type).HasMaxLength(50);
 
@@ -174,16 +174,16 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.Property(e => e.BuyerNotes).HasMaxLength(500);
             entity.Property(e => e.CancellationReason).HasMaxLength(500);
-            entity.Property(e => e.CancelledAt).HasColumnType("timestamp");
+            entity.Property(e => e.CancelledAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
-            entity.Property(e => e.DeliveredAt).HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
+            entity.Property(e => e.DeliveredAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.OrderNumber).HasMaxLength(50);
             entity.Property(e => e.OrderStatus)
                 .HasMaxLength(50)
                 .HasDefaultValue("Pending");
-            entity.Property(e => e.PaidAt).HasColumnType("timestamp");
+            entity.Property(e => e.PaidAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.PaymentIntentId).HasMaxLength(255);
             entity.Property(e => e.PaymentMethod).HasMaxLength(50);
             entity.Property(e => e.PaymentStatus)
@@ -193,7 +193,7 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.Quantity).HasDefaultValue(1);
             entity.Property(e => e.SellerNotes).HasMaxLength(500);
             entity.Property(e => e.SellerPayout).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.ShippedAt).HasColumnType("timestamp");
+            entity.Property(e => e.ShippedAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.ShippingAddressLine1).HasMaxLength(255);
             entity.Property(e => e.ShippingAddressLine2).HasMaxLength(255);
             entity.Property(e => e.ShippingCity).HasMaxLength(100);
@@ -210,7 +210,7 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.TrackingCarrier).HasMaxLength(100);
             entity.Property(e => e.TrackingNumber).HasMaxLength(100);
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp");
+            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp with time zone");
 
             entity.HasOne(d => d.Buyer).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.BuyerId)
@@ -231,7 +231,7 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.Quantity).HasDefaultValue(1);
             entity.Property(e => e.Subtotal).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
@@ -258,9 +258,9 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.Amount).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.ErrorMessage).HasMaxLength(500);
-            entity.Property(e => e.ProcessedAt).HasColumnType("timestamp");
+            entity.Property(e => e.ProcessedAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .HasDefaultValue("Pending");
@@ -295,7 +295,7 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.HasIndex(e => e.Slug, "UQ__Products__BC7B5FB6629C61E6").IsUnique();
 
-            entity.Property(e => e.ApprovedAt).HasColumnType("timestamp");
+            entity.Property(e => e.ApprovedAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.Barcode).HasMaxLength(100);
             entity.Property(e => e.Condition)
                 .HasMaxLength(50)
@@ -303,15 +303,15 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.ConditionNotes).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.Description).HasMaxLength(4000);
             entity.Property(e => e.DiscountPercentage).HasColumnType("decimal(5, 2)");
-            entity.Property(e => e.ExpiryDate).HasColumnType("timestamp");
+            entity.Property(e => e.ExpiryDate).HasColumnType("timestamp with time zone");
             entity.Property(e => e.Height).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.Length).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.ListingEndDate)
                 .HasDefaultValueSql("(NOW() + INTERVAL '7 days')")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.OriginalPrice).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.Quantity).HasDefaultValue(1);
             entity.Property(e => e.SalePrice).HasColumnType("decimal(18, 2)");
@@ -322,7 +322,7 @@ public partial class InventoryZeroDbContext : DbContext
                 .HasMaxLength(50)
                 .HasDefaultValue("Active");
             entity.Property(e => e.Title).HasMaxLength(200);
-            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp");
+            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.Weight).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.Width).HasColumnType("decimal(10, 2)");
 
@@ -346,7 +346,7 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.AltText).HasMaxLength(200);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.ImageUrl).HasMaxLength(500);
             entity.Property(e => e.ThumbnailUrl).HasMaxLength(500);
 
@@ -367,16 +367,16 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.Cons).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.IsVerifiedPurchase).HasDefaultValue(true);
             entity.Property(e => e.Pros).HasMaxLength(500);
             entity.Property(e => e.SellerResponse).HasMaxLength(1000);
-            entity.Property(e => e.SellerResponseAt).HasColumnType("timestamp");
+            entity.Property(e => e.SellerResponseAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .HasDefaultValue("Approved");
             entity.Property(e => e.Title).HasMaxLength(200);
-            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp");
+            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp with time zone");
 
             entity.HasOne(d => d.Order).WithMany(p => p.Reviews)
                 .HasForeignKey(d => d.OrderId)
@@ -411,7 +411,7 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
 
             entity.HasOne(d => d.Product).WithMany(p => p.SavedProducts)
                 .HasForeignKey(d => d.ProductId)
@@ -449,7 +449,7 @@ public partial class InventoryZeroDbContext : DbContext
             entity.Property(e => e.CoverImageUrl).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.Latitude).HasColumnType("decimal(10, 8)");
             entity.Property(e => e.LogoUrl).HasMaxLength(500);
             entity.Property(e => e.Longitude).HasColumnType("decimal(11, 8)");
@@ -464,7 +464,7 @@ public partial class InventoryZeroDbContext : DbContext
                 .HasDefaultValue("Pending");
             entity.Property(e => e.TaxNumber).HasMaxLength(100);
             entity.Property(e => e.TotalRevenue).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.VerificationDate).HasColumnType("timestamp");
+            entity.Property(e => e.VerificationDate).HasColumnType("timestamp with time zone");
             entity.Property(e => e.VerificationNotes).HasMaxLength(500);
 
             entity.HasOne(d => d.User).WithMany(p => p.Shops)
@@ -485,11 +485,11 @@ public partial class InventoryZeroDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.FullName).HasMaxLength(200);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.LastLoginAt).HasColumnType("timestamp");
+            entity.Property(e => e.LastLoginAt).HasColumnType("timestamp with time zone");
             entity.Property(e => e.PasswordHash).HasMaxLength(255);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             entity.Property(e => e.ProfilePictureUrl).HasMaxLength(500);
@@ -520,7 +520,7 @@ public partial class InventoryZeroDbContext : DbContext
                 .HasDefaultValue("South Africa");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()")
-                .HasColumnType("timestamp");
+                .HasColumnType("timestamp with time zone");
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             entity.Property(e => e.PostalCode).HasMaxLength(20);
             entity.Property(e => e.Province).HasMaxLength(100);
