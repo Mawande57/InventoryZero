@@ -63,6 +63,8 @@ namespace InventoryZeroAPI.Services
                 .Select(s => s.Id)
                 .ToListAsync();
 
+            if (shopIds.Count == 0) return new List<OrderSummaryDto>();
+
             var query = _context.Orders
                 .AsNoTracking()
                 .Include(o => o.OrderItems)
@@ -122,21 +124,21 @@ namespace InventoryZeroAPI.Services
                 throw new Exception("Cannot change status of delivered or cancelled orders.");
 
             order.OrderStatus = status;
-            order.UpdatedAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
+            order.UpdatedAt = DateTime.UtcNow;
 
             if (status == "Shipped")
             {
-                order.ShippedAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
+                order.ShippedAt = DateTime.UtcNow;
                 if (!string.IsNullOrEmpty(trackingNumber))
                     order.TrackingNumber = trackingNumber;
             }
             else if (status == "Delivered")
             {
-                order.DeliveredAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
+                order.DeliveredAt = DateTime.UtcNow;
             }
             else if (status == "Cancelled")
             {
-                order.CancelledAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
+                order.CancelledAt = DateTime.UtcNow;
             }
 
             await _context.SaveChangesAsync();
@@ -151,6 +153,10 @@ namespace InventoryZeroAPI.Services
         {
             if (productId <= 0) throw new ArgumentOutOfRangeException(nameof(productId));
             if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+
+            // EARLY RETURN: If no products exist
+            var anyProducts = await _context.Products.AsNoTracking().AnyAsync();
+            if (!anyProducts) throw new Exception("Product not found.");
 
             // Read-only - nothing here gets modified or saved.
             var product = await _context.Products
@@ -204,11 +210,17 @@ namespace InventoryZeroAPI.Services
         {
             if (userId <= 0) return new List<ProductCardDto>();
 
+            // EARLY RETURN: If no products exist
+            var anyProducts = await _context.Products.AsNoTracking().AnyAsync();
+            if (!anyProducts) return new List<ProductCardDto>();
+
             var shopIds = await _context.Shops
                 .AsNoTracking()
                 .Where(s => s.UserId == userId)
                 .Select(s => s.Id)
                 .ToListAsync();
+
+            if (shopIds.Count == 0) return new List<ProductCardDto>();
 
             // Projected straight to the DTO instead of Include + map afterward -
             // same reasoning as ProductService: avoids materializing full Shop/
@@ -275,8 +287,8 @@ namespace InventoryZeroAPI.Services
                 CategoryId = dto.CategoryId,
                 AdminApproved = true,
                 Status = "Active",
-                ListingEndDate = DateTime.UtcNow.AddDays(7),  // ← CHANGED from DateTime.Now.AddDays(7)
-                CreatedAt = DateTime.UtcNow                  // ← CHANGED from DateTime.Now
+                ListingEndDate = DateTime.UtcNow.AddDays(7),
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Products.Add(product);
@@ -312,7 +324,7 @@ namespace InventoryZeroAPI.Services
                         ImageUrl = imageUrl,
                         IsMain = i == 0,
                         SortOrder = i,
-                        CreatedAt = DateTime.UtcNow  // ← CHANGED from DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     });
                 }
             }
@@ -358,7 +370,7 @@ namespace InventoryZeroAPI.Services
             product.Condition = dto.Condition;
             product.IsUrgent = dto.IsUrgent;
             product.CategoryId = dto.CategoryId;
-            product.UpdatedAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
+            product.UpdatedAt = DateTime.UtcNow;
 
             if (dto.Images != null && dto.Images.Any())
             {
@@ -397,7 +409,7 @@ namespace InventoryZeroAPI.Services
                         ImageUrl = imageUrl,
                         IsMain = i == 0,
                         SortOrder = i,
-                        CreatedAt = DateTime.UtcNow  // ← CHANGED from DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     });
                 }
             }
@@ -554,7 +566,7 @@ namespace InventoryZeroAPI.Services
                 UserId = userId,
                 Status = "Pending",
                 IsVerified = false,
-                CreatedAt = DateTime.UtcNow,        // ← CHANGED from DateTime.Now
+                CreatedAt = DateTime.UtcNow,
                 CommissionRate = 15.00m
             };
 
@@ -573,6 +585,8 @@ namespace InventoryZeroAPI.Services
                 .Where(s => s.UserId == userId)
                 .Select(s => s.Id)
                 .ToListAsync();
+
+            if (shopIds.Count == 0) return new List<PayoutDto>();
 
             return await _context.Payouts
                 .AsNoTracking()
