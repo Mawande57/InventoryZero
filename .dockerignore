@@ -1,0 +1,39 @@
+# Build outputs
+bin/
+obj/
+out/
+publish/
+
+# IDE files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Logs
+logs/
+*.log
+
+# User Secrets (don't include these in container)
+secrets.json
+appsettings.Development.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Node modules (if any)
+node_modules/
