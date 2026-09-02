@@ -77,7 +77,7 @@ namespace InventoryZeroAPI.Services
                 RecipientName = dto.RecipientName,
                 IsDefault = dto.IsDefault,
                 AddressType = dto.AddressType,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.UserAddresses.Add(address);
