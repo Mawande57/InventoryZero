@@ -122,21 +122,21 @@ namespace InventoryZeroAPI.Services
                 throw new Exception("Cannot change status of delivered or cancelled orders.");
 
             order.OrderStatus = status;
-            order.UpdatedAt = DateTime.Now;
+            order.UpdatedAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
 
             if (status == "Shipped")
             {
-                order.ShippedAt = DateTime.Now;
+                order.ShippedAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
                 if (!string.IsNullOrEmpty(trackingNumber))
                     order.TrackingNumber = trackingNumber;
             }
             else if (status == "Delivered")
             {
-                order.DeliveredAt = DateTime.Now;
+                order.DeliveredAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
             }
             else if (status == "Cancelled")
             {
-                order.CancelledAt = DateTime.Now;
+                order.CancelledAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
             }
 
             await _context.SaveChangesAsync();
@@ -275,8 +275,8 @@ namespace InventoryZeroAPI.Services
                 CategoryId = dto.CategoryId,
                 AdminApproved = true,
                 Status = "Active",
-                ListingEndDate = DateTime.Now.AddDays(7),
-                CreatedAt = DateTime.Now
+                ListingEndDate = DateTime.UtcNow.AddDays(7),  // ← CHANGED from DateTime.Now.AddDays(7)
+                CreatedAt = DateTime.UtcNow                  // ← CHANGED from DateTime.Now
             };
 
             _context.Products.Add(product);
@@ -312,7 +312,7 @@ namespace InventoryZeroAPI.Services
                         ImageUrl = imageUrl,
                         IsMain = i == 0,
                         SortOrder = i,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow  // ← CHANGED from DateTime.Now
                     });
                 }
             }
@@ -358,7 +358,7 @@ namespace InventoryZeroAPI.Services
             product.Condition = dto.Condition;
             product.IsUrgent = dto.IsUrgent;
             product.CategoryId = dto.CategoryId;
-            product.UpdatedAt = DateTime.Now;
+            product.UpdatedAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
 
             if (dto.Images != null && dto.Images.Any())
             {
@@ -397,7 +397,7 @@ namespace InventoryZeroAPI.Services
                         ImageUrl = imageUrl,
                         IsMain = i == 0,
                         SortOrder = i,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow  // ← CHANGED from DateTime.Now
                     });
                 }
             }
@@ -554,7 +554,7 @@ namespace InventoryZeroAPI.Services
                 UserId = userId,
                 Status = "Pending",
                 IsVerified = false,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,        // ← CHANGED from DateTime.Now
                 CommissionRate = 15.00m
             };
 

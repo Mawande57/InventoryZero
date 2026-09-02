@@ -41,7 +41,7 @@ namespace InventoryZeroAPI.Services
                 PasswordHash = hash,
                 PhoneNumber = dto.PhoneNumber,
                 Role = "Buyer",
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,  // ← CHANGED from DateTime.Now
                 IsActive = true
             };
 
@@ -68,7 +68,7 @@ namespace InventoryZeroAPI.Services
             if (!user.IsActive)
                 throw new Exception("The Admin deActivated your account for malicious activity contact the admin");
 
-            user.LastLoginAt = DateTime.Now;
+            user.LastLoginAt = DateTime.UtcNow;  // ← CHANGED from DateTime.Now
 
             // Computed once here and passed into GenerateResponse - previously this was
             // queried a second time (synchronously, blocking a thread) inside that method.
@@ -107,7 +107,7 @@ namespace InventoryZeroAPI.Services
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddDays(7),
+                expires: DateTime.Now.AddDays(7),  // ← This is FINE (just calculates future date, doesn't save to DB)
                 signingCredentials: creds
             );
 
