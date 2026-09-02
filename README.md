@@ -239,7 +239,7 @@ The database schema is designed for an e-commerce marketplace with 15 tables:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/InventoryZeroAPI.git
+git clone https://github.com/Mawande57/InventoryZeroAPI.git
 cd InventoryZeroAPI
 
 # Install dependencies
