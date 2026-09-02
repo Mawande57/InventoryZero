@@ -183,21 +183,17 @@ namespace InventoryZeroAPI.Services
 
         public async Task ApproveShopAsync(int shopId, int adminId, ShopApprovalDto dto)
         {
-            // Guard clause up front so a missing dto fails with a clear message
-            // instead of a NullReferenceException on dto.Notes below.
             if (dto == null) throw new ArgumentNullException(nameof(dto));
 
-            // Intentionally tracked (not AsNoTracking) - we're mutating this entity.
             var shop = await _context.Shops.FindAsync(shopId);
             if (shop == null)
                 throw new Exception("Shop not found.");
 
             shop.Status = "Active";
             shop.IsVerified = true;
-            shop.VerificationDate = DateTime.Now;
+            shop.VerificationDate = DateTime.UtcNow;  // ← Changed from DateTime.Now
             shop.VerificationNotes = dto.Notes;
 
-            // Log activity
             _context.ActivityLogs.Add(new ActivityLog
             {
                 AdminUserId = adminId,
@@ -205,7 +201,7 @@ namespace InventoryZeroAPI.Services
                 EntityType = "Shop",
                 EntityId = shopId,
                 NewValue = $"Shop '{shop.ShopName}' approved",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow  // ← Changed from DateTime.Now
             });
 
             await _context.SaveChangesAsync();
@@ -213,7 +209,6 @@ namespace InventoryZeroAPI.Services
 
         public async Task RejectShopAsync(int shopId, int adminId, string reason)
         {
-            // Intentionally tracked - we're mutating this entity.
             var shop = await _context.Shops.FindAsync(shopId);
             if (shop == null)
                 throw new Exception("Shop not found.");
@@ -228,7 +223,7 @@ namespace InventoryZeroAPI.Services
                 EntityType = "Shop",
                 EntityId = shopId,
                 NewValue = $"Shop '{shop.ShopName}' rejected. Reason: {reason}",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow  // ← Changed from DateTime.Now
             });
 
             await _context.SaveChangesAsync();
