@@ -4,7 +4,7 @@
 
 ## 📋 Overview
 
-InventoryZero is a full-stack web application prototype that connects businesses with excess inventory to buyers looking for discounted products. The platform enables sellers to list liquidation items, manage their shops, and process orders, while buyers can browse, save, and purchase discounted products.
+InventoryZero is a full-stack web application prototype that connects businesses with excess inventory to buyers looking for discounted products. The platform enables sellers to list liquidation items, manage their shops, and process orders, while buyers can browse, save, and purchase discounted products.(please note that the website it self only has an admin no users/sellers/products or any important data to test it , so to test it please fell free to register as a buyer , and the site will give you the option to become a seller and add products remove products and place an order as a user , every detail you may need is indicated below take you time , full testing for the product can take atleast 15 minutes)
 
 ### 🎯 Project Purpose
 
